@@ -31,13 +31,11 @@ const verificarValidade = (dataValidade: string) => {
   return { status: 'regular', cor: '#27ae60', texto: 'Regular' };
 };
 
-// --- MOTOR DE SAFE STORAGE (BLINDAGEM PARA O iOS) ---
 const loadData = (key: string, defaultData: any) => {
   try {
     const item = localStorage.getItem(key);
     return item ? JSON.parse(item) : defaultData;
   } catch (error) {
-    console.warn(`Aviso: Não foi possível ler ${key} do armazenamento local.`, error);
     return defaultData;
   }
 };
@@ -46,14 +44,12 @@ const saveData = (key: string, data: any) => {
   try {
     localStorage.setItem(key, JSON.stringify(data));
   } catch (error: any) {
-    console.error(`Erro crítico ao salvar ${key}:`, error);
     if (error.name === 'QuotaExceededError' || error.message.includes('QuotaExceeded')) {
-      alert("⚠️ A memória local do seu navegador está cheia! Apague alguns treinos muito antigos com fotos para liberar espaço e conseguir salvar novos dados.");
+      alert("⚠️ A memória local do seu navegador está cheia!");
     }
   }
 };
 
-// --- COMPRESSÃO AGRESSIVA (Para caber na cota do iPhone) ---
 const comprimirImagem = (file: File, callback: (base64: string) => void) => {
   const reader = new FileReader();
   reader.readAsDataURL(file);
@@ -63,7 +59,7 @@ const comprimirImagem = (file: File, callback: (base64: string) => void) => {
     img.src = event.target.result as string;
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      const MAX_WIDTH = 600; // Reduzido de 800 para 600 (Economiza muito espaço)
+      const MAX_WIDTH = 600; 
       let scaleSize = 1;
       if (img.width > MAX_WIDTH) { scaleSize = MAX_WIDTH / img.width; }
       canvas.width = img.width * scaleSize;
@@ -71,37 +67,29 @@ const comprimirImagem = (file: File, callback: (base64: string) => void) => {
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        callback(canvas.toDataURL('image/jpeg', 0.6)); // Qualidade reduzida para 60%
+        callback(canvas.toDataURL('image/jpeg', 0.6)); 
       }
     };
   };
 };
 
-interface Marcacao {
-  x: number;
-  y: number;
-}
+interface Marcacao { x: number; y: number; }
 
 const avaliarMetricasTiro = (marcacoes: Marcacao[]) => {
   if (marcacoes.length === 0) return { precisao: "0", dispersao: 0, diagnostico: "Nenhum tiro no alvo." };
-  
   const xMedio = marcacoes.reduce((acc: number, val: Marcacao) => acc + val.x, 0) / marcacoes.length;
   const yMedio = marcacoes.reduce((acc: number, val: Marcacao) => acc + val.y, 0) / marcacoes.length;
   const dispersao = marcacoes.reduce((acc: number, val: Marcacao) => acc + Math.sqrt(Math.pow(val.x - xMedio, 2) + Math.pow(val.y - yMedio, 2)), 0) / marcacoes.length;
-  
   let pontuacaoTotal = 0;
   marcacoes.forEach((m: Marcacao) => {
     const distCentro = Math.sqrt(Math.pow(m.x - 0.5, 2) + Math.pow(m.y - 0.5, 2));
     pontuacaoTotal += Math.max(0, 100 - (distCentro / 0.5 * 100)); 
   });
   const precisaoScore = (pontuacaoTotal / marcacoes.length).toFixed(1);
-
   let diagnostico = "";
-  if (marcacoes.length < 3 && dispersao > 0.10) {
-    diagnostico = "⚠️ Poucos tiros e distantes entre si. Não forma um agrupamento consistente.";
-  } else if (dispersao > 0.11) {
-    diagnostico = "⚠️ Dispersão Irregular. Tiros espalhados. Foque na empunhadura, visada igual e controle da respiração.";
-  } else {
+  if (marcacoes.length < 3 && dispersao > 0.10) diagnostico = "⚠️ Poucos tiros e distantes entre si. Não forma um agrupamento consistente.";
+  else if (dispersao > 0.11) diagnostico = "⚠️ Dispersão Irregular. Tiros espalhados. Foque na empunhadura, visada igual e controle da respiração.";
+  else {
     const distanciaCentroReal = Math.sqrt(Math.pow(xMedio - 0.5, 2) + Math.pow(yMedio - 0.5, 2));
     if (distanciaCentroReal <= 0.12) diagnostico = "✅ Excelente agrupamento! Fundamentos corretos.";
     else if (xMedio < 0.45 && yMedio > 0.55) diagnostico = "🚨 Gatilhada (Jerking) ou Over-gripping da mão forte. Puxe progressivamente.";
@@ -113,7 +101,6 @@ const avaliarMetricasTiro = (marcacoes: Marcacao[]) => {
     else if (xMedio > 0.65 && Math.abs(yMedio - 0.5) < 0.15) diagnostico = "🚨 Dedo muito inserido no gatilho. Puxando arma para a direita.";
     else diagnostico = "⚠️ Agrupamento apertado, mas fora do centro. Verifique o ajuste da sua mira.";
   }
-
   return { precisao: precisaoScore, dispersao: dispersao, diagnostico };
 };
 
@@ -132,26 +119,25 @@ const RenderizarAlvo: React.FC<RenderizarAlvoProps> = ({ imagem, marcacoes, onTa
   </div>
 );
 
-export default function LogbookApp({ usuarioLogout }) {
-  const [telaAtual, setTelaAtual] = useState<string>('arsenal');
-  
-  // --- TEMA E DARK MODE (Usando Safe Storage) ---
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => loadData('logbook_darkmode', false));
+// TIPAGEM CORRETA PARA O COMPONENTE RECEBER O LOGOUT
+interface LogbookAppProps {
+  usuarioLogout?: () => void;
+}
 
-  // --- ESTADOS DE DADOS (Usando Safe Storage) ---
+export default function LogbookApp({ usuarioLogout }: LogbookAppProps) {
+  const [telaAtual, setTelaAtual] = useState<string>('arsenal');
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => loadData('logbook_darkmode', false));
   const [perfil, setPerfil] = useState(() => loadData('logbook_perfil', { nome: 'Fernando Evangelista', cr: '', validadeCr: '' }));
   const [armas, setArmas] = useState(() => loadData('logbook_armas', [{ id: 1, marca: 'Taurus', modelo: 'THc', calibre: '9mm', foto: null, dataCompra: '', orgao: 'Sigma', craf: '', validadeCraf: '', gt: '', validadeGt: '', dataUltimaLimpeza: '', historicoManutencao: [] }]));
   const [historicoSessoes, setHistoricoSessoes] = useState(() => loadData('logbook_sessoes', []));
   const [relatoriosHabSalvos, setRelatoriosHabSalvos] = useState(() => loadData('logbook_hab', []));
 
-  // --- EFEITOS DE SALVAMENTO SEGURO ---
   useEffect(() => { saveData('logbook_darkmode', isDarkMode); }, [isDarkMode]);
   useEffect(() => { saveData('logbook_perfil', perfil); }, [perfil]);
   useEffect(() => { saveData('logbook_armas', armas); }, [armas]);
   useEffect(() => { saveData('logbook_sessoes', historicoSessoes); }, [historicoSessoes]);
   useEffect(() => { saveData('logbook_hab', relatoriosHabSalvos); }, [relatoriosHabSalvos]);
 
-  // Definição dinâmica das cores baseada no tema
   const theme = {
     bg: isDarkMode ? '#121212' : '#f4f4f9',
     cardBg: isDarkMode ? '#1e1e1e' : '#ffffff',
@@ -168,18 +154,14 @@ export default function LogbookApp({ usuarioLogout }) {
   };
   
   const [editandoPerfil, setEditandoPerfil] = useState<boolean>(false);
-  
   const [filtroHabInicio, setFiltroHabInicio] = useState<string>('');
   const [filtroHabFim, setFiltroHabFim] = useState<string>('');
-  
   const [novaArma, setNovaArma] = useState<any>({ marca: '', modelo: '', calibre: '9mm', foto: null, dataCompra: '', orgao: 'Sigma', craf: '', validadeCraf: '', gt: '', validadeGt: '', dataUltimaLimpeza: '', historicoManutencao: [] });
   const [armaEmEdicao, setArmaEmEdicao] = useState<number | null>(null);
   const [armaExpandida, setArmaExpandida] = useState<number | null>(null); 
   const [mostrarCamposAvancados, setMostrarCamposAvancados] = useState<boolean>(false);
-  
   const [dataNovaManutencao, setDataNovaManutencao] = useState<string>(obterDataHoje());
   const [descNovaManutencao, setDescNovaManutencao] = useState<string>('');
-
   const [sessaoEmEdicaoId, setSessaoEmEdicaoId] = useState<number | null>(null);
   const [dataTreino, setDataTreino] = useState<string>(obterDataHoje());
   const [horaTreino, setHoraTreino] = useState<string>(obterHoraAtual());
@@ -189,7 +171,6 @@ export default function LogbookApp({ usuarioLogout }) {
   const [ehHabitualidade, setEhHabitualidade] = useState<boolean>(true);
   const [imagemAlvo, setImagemAlvo] = useState<string>(ALVO_PADRAO);
   const [marcacoes, setMarcacoes] = useState<Marcacao[]>([]);
-
   const [sessaoExpandida, setSessaoExpandida] = useState<number | null>(null);
   const [filtroArma, setFiltroArma] = useState<string>('');
   const [filtroDataInicio, setFiltroDataInicio] = useState<string>('');
@@ -197,7 +178,6 @@ export default function LogbookApp({ usuarioLogout }) {
   const [modoComparacao, setModoComparacao] = useState<boolean>(false);
   const [sessoesParaComparar, setSessoesParaComparar] = useState<any[]>([]);
 
-  // --- FUNÇÕES DE ARMAS ---
   const lidarComFotoArma = (e: React.ChangeEvent<HTMLInputElement>) => { 
     const file = e.target.files?.[0]; 
     if(file) { comprimirImagem(file, (imagemBase64: string) => { setNovaArma({...novaArma, foto: imagemBase64}); }); }
@@ -217,27 +197,20 @@ export default function LogbookApp({ usuarioLogout }) {
   };
   
   const editarArma = (arma: any) => { setNovaArma(arma); setArmaEmEdicao(arma.id); setMostrarCamposAvancados(true); };
-  const excluirArma = (id: number) => { if (window.confirm("Apagar arma do acervo? Os treinos associados a ela permanecerão no logbook.")) setArmas(armas.filter((a: any) => a.id !== id)); };
+  const excluirArma = (id: number) => { if (window.confirm("Apagar arma do acervo?")) setArmas(armas.filter((a: any) => a.id !== id)); };
 
   const registrarLimpezaHoje = (idArma: number) => { setArmas(armas.map((a: any) => a.id === idArma ? { ...a, dataUltimaLimpeza: obterDataHoje() } : a)); };
-  
-  const atualizarDataLimpeza = (idArma: number, novaData: string) => {
-    setArmas(armas.map((a: any) => a.id === idArma ? { ...a, dataUltimaLimpeza: novaData } : a));
-  };
-
+  const atualizarDataLimpeza = (idArma: number, novaData: string) => { setArmas(armas.map((a: any) => a.id === idArma ? { ...a, dataUltimaLimpeza: novaData } : a)); };
   const adicionarManutencao = (idArma: number) => {
     if(!descNovaManutencao) return;
     setArmas(armas.map((a: any) => {
-      if (a.id === idArma) {
-        return { ...a, historicoManutencao: [{ id: Date.now(), data: dataNovaManutencao, descricao: descNovaManutencao }, ...a.historicoManutencao] };
-      }
+      if (a.id === idArma) return { ...a, historicoManutencao: [{ id: Date.now(), data: dataNovaManutencao, descricao: descNovaManutencao }, ...a.historicoManutencao] };
       return a;
     }));
     setDescNovaManutencao('');
   };
   const removerManutencao = (idArma: number, idManutencao: number) => { setArmas(armas.map((a: any) => a.id === idArma ? { ...a, historicoManutencao: a.historicoManutencao.filter((m: any) => m.id !== idManutencao) } : a)); };
 
-  // --- FUNÇÕES DE TREINO ---
   const lidarComUploadAlvo = (e: React.ChangeEvent<HTMLInputElement>) => { 
     const file = e.target.files?.[0]; 
     if(file){ comprimirImagem(file, (imagemBase64: string) => { setImagemAlvo(imagemBase64); }); } 
@@ -246,15 +219,15 @@ export default function LogbookApp({ usuarioLogout }) {
   };
 
   const marcarTiro = (e: React.MouseEvent<HTMLImageElement>) => { 
-    if (!qtdTiros || marcacoes.length >= parseInt(qtdTiros)) return alert(`Limite de marcação atingido. O treino tem ${qtdTiros || 0} disparos.`);
+    if (!qtdTiros || marcacoes.length >= parseInt(qtdTiros)) return alert(`Limite atingido.`);
     const rect = e.currentTarget.getBoundingClientRect(); 
     setMarcacoes([...marcacoes, { x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height }]); 
   };
 
   const finalizarSessao = () => {
-    if (!armaSelecionada || !qtdTiros) return alert("Selecione uma arma e defina a quantidade de tiros.");
+    if (!armaSelecionada || !qtdTiros) return alert("Selecione arma e quantidade de tiros.");
     const armaUsada = armas.find((a: any) => a.id.toString() === armaSelecionada);
-    if (!armaUsada) return alert("Arma inválida selecionada.");
+    if (!armaUsada) return;
 
     const metricas = avaliarMetricasTiro(marcacoes);
     const taxaPapel = qtdTiros ? parseFloat(((marcacoes.length / parseInt(qtdTiros)) * 100).toFixed(0)) : 0;
@@ -268,51 +241,29 @@ export default function LogbookApp({ usuarioLogout }) {
       diagnostico: metricas.diagnostico, imagemOriginal: imagemAlvo, marcacoesSalvas: marcacoes
     };
 
-    if (sessaoEmEdicaoId) {
-      setHistoricoSessoes(historicoSessoes.map((s: any) => s.id === sessaoEmEdicaoId ? novaSessao : s));
-    } else {
-      setHistoricoSessoes([novaSessao, ...historicoSessoes]);
-    }
+    if (sessaoEmEdicaoId) setHistoricoSessoes(historicoSessoes.map((s: any) => s.id === sessaoEmEdicaoId ? novaSessao : s));
+    else setHistoricoSessoes([novaSessao, ...historicoSessoes]);
 
     limparFormularioTreino();
     setTelaAtual('relatorios');
   };
 
   const limparFormularioTreino = () => {
-    setDataTreino(obterDataHoje());
-    setHoraTreino(obterHoraAtual());
-    setArmaSelecionada('');
-    setQtdTiros('');
-    setTipoMunicao('Original');
-    setEhHabitualidade(true);
-    setMarcacoes([]);
-    setImagemAlvo(ALVO_PADRAO);
-    setSessaoEmEdicaoId(null);
-  };
-
-  const cancelarEdicaoSessao = () => {
-    limparFormularioTreino();
-    setTelaAtual('relatorios');
+    setDataTreino(obterDataHoje()); setHoraTreino(obterHoraAtual()); setArmaSelecionada('');
+    setQtdTiros(''); setTipoMunicao('Original'); setEhHabitualidade(true);
+    setMarcacoes([]); setImagemAlvo(ALVO_PADRAO); setSessaoEmEdicaoId(null);
   };
 
   const editarSessao = (sessao: any) => {
-    setDataTreino(sessao.data);
-    setHoraTreino(sessao.hora || obterHoraAtual());
-    setArmaSelecionada(sessao.armaId.toString());
-    setQtdTiros(sessao.tirosDeclarados.toString());
-    setTipoMunicao(sessao.municao || 'Original');
-    setEhHabitualidade(sessao.habitualidade);
-    setImagemAlvo(sessao.imagemOriginal);
-    setMarcacoes(sessao.marcacoesSalvas || []);
-    setSessaoEmEdicaoId(sessao.id);
-    setSessaoExpandida(null);
-    setTelaAtual('treino'); 
+    setDataTreino(sessao.data); setHoraTreino(sessao.hora || obterHoraAtual());
+    setArmaSelecionada(sessao.armaId.toString()); setQtdTiros(sessao.tirosDeclarados.toString());
+    setTipoMunicao(sessao.municao || 'Original'); setEhHabitualidade(sessao.habitualidade);
+    setImagemAlvo(sessao.imagemOriginal); setMarcacoes(sessao.marcacoesSalvas || []);
+    setSessaoEmEdicaoId(sessao.id); setSessaoExpandida(null); setTelaAtual('treino'); 
   };
 
   const excluirSessao = (id: number) => {
-    if (window.confirm("Tem certeza que deseja apagar este treino permanentemente?")) {
-      setHistoricoSessoes(historicoSessoes.filter((s: any) => s.id !== id));
-    }
+    if (window.confirm("Apagar treino?")) setHistoricoSessoes(historicoSessoes.filter((s: any) => s.id !== id));
   };
 
   const sessoesFiltradas = historicoSessoes.filter((sessao: any) => {
@@ -323,30 +274,23 @@ export default function LogbookApp({ usuarioLogout }) {
   });
 
   const toggleComparacao = (sessao: any) => {
-    if (sessoesParaComparar.find((s: any) => s.id === sessao.id)) {
-      setSessoesParaComparar(sessoesParaComparar.filter((s: any) => s.id !== sessao.id));
-    } else {
+    if (sessoesParaComparar.find((s: any) => s.id === sessao.id)) setSessoesParaComparar(sessoesParaComparar.filter((s: any) => s.id !== sessao.id));
+    else {
       if (sessoesParaComparar.length < 2) setSessoesParaComparar([...sessoesParaComparar, sessao]);
-      else alert("Selecione apenas 2 sessões para comparar.");
+      else alert("Selecione apenas 2 sessões.");
     }
   };
 
   const calcularEvolucao = () => {
     if (sessoesParaComparar.length !== 2) return null;
     const ordenadas = [...sessoesParaComparar].sort((a: any, b: any) => new Date(`${a.data}T${a.hora || '00:00'}`).getTime() - new Date(`${b.data}T${b.hora || '00:00'}`).getTime());
-    const sessaoAntiga = ordenadas[0];
-    const sessaoNova = ordenadas[1];
-    
+    const sessaoAntiga = ordenadas[0]; const sessaoNova = ordenadas[1];
     const diffPrecisao = (Number(sessaoNova.precisaoScore) - Number(sessaoAntiga.precisaoScore)).toFixed(1);
     const diffDispersao = (sessaoAntiga.dispersaoIndex - sessaoNova.dispersaoIndex);
     
-    if (Number(diffPrecisao) > 3 || diffDispersao > 0.05) {
-      return (<div style={{...styles.caixaEvolucao, backgroundColor: '#d4edda', color: '#155724', borderColor: '#c3e6cb'}}>📈 <strong>Evolução Real!</strong> Agrupamento mais fechado. Score subiu em {diffPrecisao}%.</div>);
-    }
-    if (Number(diffPrecisao) < -3 || diffDispersao < -0.05) {
-      return (<div style={{...styles.caixaEvolucao, backgroundColor: '#f8d7da', color: '#721c24', borderColor: '#f5c6cb'}}>📉 <strong>Regressão detectada:</strong> Dispersão aumentou. Score caiu {Math.abs(Number(diffPrecisao))}%.</div>);
-    }
-    return <div style={{...styles.caixaEvolucao, backgroundColor: '#e2e3e5', color: '#383d41', borderColor: '#d6d8db'}}>⚖️ <strong>Desempenho Mantido:</strong> Sem variações significativas.</div>;
+    if (Number(diffPrecisao) > 3 || diffDispersao > 0.05) return (<div style={{...styles.caixaEvolucao, backgroundColor: '#d4edda', color: '#155724', borderColor: '#c3e6cb'}}>📈 <strong>Evolução Real!</strong> Score subiu em {diffPrecisao}%.</div>);
+    if (Number(diffPrecisao) < -3 || diffDispersao < -0.05) return (<div style={{...styles.caixaEvolucao, backgroundColor: '#f8d7da', color: '#721c24', borderColor: '#f5c6cb'}}>📉 <strong>Regressão detectada:</strong> Score caiu {Math.abs(Number(diffPrecisao))}%.</div>);
+    return <div style={{...styles.caixaEvolucao, backgroundColor: '#e2e3e5', color: '#383d41', borderColor: '#d6d8db'}}>⚖️ <strong>Desempenho Mantido</strong></div>;
   };
 
   const sessoesHabitualidade = historicoSessoes.filter((s: any) => {
@@ -357,35 +301,21 @@ export default function LogbookApp({ usuarioLogout }) {
   });
 
   const salvarPeriodoHabitualidade = () => {
-    if (!filtroHabInicio || !filtroHabFim) return alert("Defina a Data Inicial e Data Final para salvar o período.");
-    const novoRelatorio = { id: Date.now(), inicio: filtroHabInicio, fim: filtroHabFim, criacao: obterDataHoje() };
-    setRelatoriosHabSalvos([novoRelatorio, ...relatoriosHabSalvos]);
-    alert("Período de relatório salvo com sucesso!");
-  };
-
-  const carregarRelatorioSalvo = (relatorio: any) => {
-    setFiltroHabInicio(relatorio.inicio);
-    setFiltroHabFim(relatorio.fim);
+    if (!filtroHabInicio || !filtroHabFim) return alert("Defina a Data Inicial e Final.");
+    setRelatoriosHabSalvos([{ id: Date.now(), inicio: filtroHabInicio, fim: filtroHabFim, criacao: obterDataHoje() }, ...relatoriosHabSalvos]);
+    alert("Período salvo com sucesso!");
   };
 
   const exportarCSV = () => {
-    let csvContent = "\uFEFF"; 
-    csvContent += "Data;Hora;Arma;Calibre;Munição;Tiros;Score Precisão\n";
-    sessoesHabitualidade.forEach((s: any) => {
-      csvContent += `${formatarData(s.data)};${s.hora};${s.armaNome};${s.calibre};${s.municao};${s.tirosDeclarados};${s.precisaoScore}%\n`;
-    });
+    let csvContent = "\uFEFFData;Hora;Arma;Calibre;Munição;Tiros;Score Precisão\n";
+    sessoesHabitualidade.forEach((s: any) => { csvContent += `${formatarData(s.data)};${s.hora};${s.armaNome};${s.calibre};${s.municao};${s.tirosDeclarados};${s.precisaoScore}%\n`; });
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `Relatorio_Habitualidade_${obterDataHoje()}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
+    link.href = URL.createObjectURL(blob);
+    link.download = `Relatorio_Habitualidade_${obterDataHoje()}.csv`;
     link.click();
-    document.body.removeChild(link);
   };
 
-  // --- ESTILOS DINÂMICOS ---
   const styles: { [key: string]: React.CSSProperties } = {
     container: { fontFamily: 'system-ui, sans-serif', padding: '16px', paddingBottom: '80px', maxWidth: '400px', margin: '0 auto', backgroundColor: theme.bg, color: theme.textMain, minHeight: '100vh', position: 'relative' },
     header: { textAlign: 'center', color: theme.textMain, marginBottom: '20px' },
@@ -431,19 +361,13 @@ export default function LogbookApp({ usuarioLogout }) {
         `}
       </style>
 
-      {/* CABEÇALHO COM BOTÃO DARK MODE */}
       <div className="no-print" style={{display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative', marginBottom: '20px'}}>
         <h2 style={{...styles.header, marginBottom: 0}}>🎯 Logbook de Tiro</h2>
-        <button 
-          onClick={() => setIsDarkMode(!isDarkMode)} 
-          style={{position: 'absolute', right: 0, background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', padding: '5px'}}
-          title="Alternar Tema"
-        >
+        <button onClick={() => setIsDarkMode(!isDarkMode)} style={{position: 'absolute', right: 0, background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', padding: '5px'}}>
           {isDarkMode ? '☀️' : '🌙'}
         </button>
       </div>
 
-      {/* --- ABA 1: ARSENAL --- */}
       {telaAtual === 'arsenal' && (
         <div className="no-print">
           <form onSubmit={salvarArma} style={styles.card}>
@@ -455,11 +379,9 @@ export default function LogbookApp({ usuarioLogout }) {
             <select style={styles.input} value={novaArma.calibre} onChange={e => setNovaArma({...novaArma, calibre: e.target.value})}>
               {CALIBRES_DISPONIVEIS.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
-
             <button type="button" onClick={() => setMostrarCamposAvancados(!mostrarCamposAvancados)} style={styles.btnSecundario}>
-              {mostrarCamposAvancados ? 'Ocultar Documentação Legal' : '➕ Adicionar Dados de Registro (CRAF/GT)'}
+              {mostrarCamposAvancados ? 'Ocultar Documentação Legal' : '➕ Adicionar Dados de Registro'}
             </button>
-
             {mostrarCamposAvancados && (
               <div style={{backgroundColor: theme.cardRelatorioBg, padding: '10px', borderRadius: '8px', marginTop: '10px', border: `1px solid ${theme.borderColor}`}}>
                 <label style={styles.label}>Foto do Equipamento:</label>
@@ -478,7 +400,6 @@ export default function LogbookApp({ usuarioLogout }) {
                 </div>
               </div>
             )}
-
             <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
               <button type="submit" style={{...styles.button, flex: 2}}>{armaEmEdicao ? 'Atualizar Arma' : 'Salvar no Acervo'}</button>
               {armaEmEdicao && <button type="button" onClick={() => {setArmaEmEdicao(null); setMostrarCamposAvancados(false);}} style={{...styles.button, backgroundColor: '#95a5a6', flex: 1}}>Cancelar</button>}
@@ -494,13 +415,11 @@ export default function LogbookApp({ usuarioLogout }) {
                 const disparosRecarregada = sessoesDaArma.filter((s: any) => s.municao === 'Recarregada').reduce((acc: number, s: any) => acc + parseInt(s.tirosDeclarados), 0);
                 const disparosDryFire = sessoesDaArma.filter((s: any) => s.municao === 'Dry Fire').reduce((acc: number, s: any) => acc + parseInt(s.tirosDeclarados), 0);
                 const disparosTotais = disparosOriginal + disparosRecarregada + disparosDryFire;
-
                 const statusCraf = verificarValidade(a.validadeCraf);
                 const statusGt = verificarValidade(a.validadeGt);
 
                 return (
                   <li key={a.id} style={{...styles.listItem, flexDirection: 'column', alignItems: 'flex-start', border: `1px solid ${theme.itemBorder}`, padding: '10px', borderRadius: '8px', marginBottom: '10px'}}>
-                    
                     <div style={{display: 'flex', justifyContent: 'space-between', width: '100%', cursor: 'pointer'}} onClick={() => setArmaExpandida(armaExpandida === a.id ? null : a.id)}>
                       <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
                         {a.foto && <img src={a.foto} alt="Arma" style={{width: '45px', height: '45px', borderRadius: '4px', objectFit: 'cover'}} />}
@@ -517,7 +436,6 @@ export default function LogbookApp({ usuarioLogout }) {
                         <button type="button" onClick={() => excluirArma(a.id)} style={styles.btnAcao}>🗑️</button>
                       </div>
                     </div>
-
                     <div style={{width: '100%', fontSize: '11px', backgroundColor: theme.cardRelatorioBg, padding: '6px 10px', borderRadius: '4px', marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '4px', boxSizing: 'border-box'}}>
                       <div style={{display: 'flex', justifyContent: 'space-between'}}>
                         <span><strong>CRAF:</strong> {a.craf || 'Não inf.'}</span>
@@ -528,7 +446,6 @@ export default function LogbookApp({ usuarioLogout }) {
                         {a.validadeGt && <span style={{color: statusGt.cor, fontWeight: 'bold'}}>● {statusGt.texto}</span>}
                       </div>
                     </div>
-                    
                     {armaExpandida === a.id && (
                       <div style={{width: '100%', marginTop: '15px', borderTop: `1px dashed ${theme.borderColor}`, paddingTop: '10px'}}>
                         <h4 style={{fontSize: '13px', margin: '0 0 10px 0', color: theme.textMain}}>📊 Consumo de Munição</h4>
@@ -537,28 +454,19 @@ export default function LogbookApp({ usuarioLogout }) {
                           <span style={{backgroundColor: '#fef5e7', color: '#2c3e50', padding: '4px 8px', borderRadius: '4px', border: '1px solid #f39c12'}}>Recarg.: {disparosRecarregada}</span>
                           <span style={{backgroundColor: '#f9ebea', color: '#2c3e50', padding: '4px 8px', borderRadius: '4px', border: '1px solid #e74c3c'}}>Dry Fire: {disparosDryFire}</span>
                         </div>
-
                         <h4 style={{fontSize: '13px', margin: '0 0 10px 0', color: theme.textMain}}>🛠️ Controle de Manutenção</h4>
-                        
                         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: theme.caixaDiagBg, padding: '8px', borderRadius: '4px', fontSize: '12px', marginBottom: '10px'}}>
                           <div style={{display: 'flex', alignItems: 'center', gap: '5px'}}>
                             <strong style={{color: theme.caixaDiagText}}>Limpeza:</strong>
-                            <input 
-                              type="date" 
-                              style={{...styles.input, padding: '4px 6px', marginBottom: 0, width: 'auto', fontSize: '12px'}} 
-                              value={a.dataUltimaLimpeza || ''} 
-                              onChange={e => atualizarDataLimpeza(a.id, e.target.value)} 
-                            />
+                            <input type="date" style={{...styles.input, padding: '4px 6px', marginBottom: 0, width: 'auto', fontSize: '12px'}} value={a.dataUltimaLimpeza || ''} onChange={e => atualizarDataLimpeza(a.id, e.target.value)} />
                           </div>
                           <button onClick={() => registrarLimpezaHoje(a.id)} style={{...styles.btnSecundario, padding: '4px 8px', width: 'auto', fontSize: '11px'}}>Limpei Hoje</button>
                         </div>
-
                         <div style={{display: 'flex', gap: '5px', marginBottom: '10px'}}>
                           <input type="date" style={{...styles.input, marginBottom: 0, padding: '6px', fontSize: '12px', flex: 1}} value={dataNovaManutencao} onChange={e => setDataNovaManutencao(e.target.value)} />
                           <input style={{...styles.input, marginBottom: 0, padding: '6px', fontSize: '12px', flex: 2}} placeholder="Ex: Troca de mola" value={descNovaManutencao} onChange={e => setDescNovaManutencao(e.target.value)} />
                           <button onClick={() => adicionarManutencao(a.id)} style={{...styles.button, marginTop: 0, padding: '6px 10px', width: 'auto', fontSize: '12px'}}>Add</button>
                         </div>
-
                         {a.historicoManutencao.length > 0 && (
                           <ul style={{listStyle: 'none', padding: 0, margin: 0, fontSize: '12px'}}>
                             {a.historicoManutencao.map((man: any) => (
@@ -579,41 +487,33 @@ export default function LogbookApp({ usuarioLogout }) {
         </div>
       )}
 
-      {/* --- ABA 2: TREINO --- */}
       {telaAtual === 'treino' && (
         <div className="no-print" style={styles.card}>
           <h3 style={styles.cardTitle}>{sessaoEmEdicaoId ? 'Editar Treino Salvo' : 'Registrar Sessão'}</h3>
-          
           {sessaoEmEdicaoId && (
             <div style={{backgroundColor: '#fff3cd', color: '#856404', padding: '10px', borderRadius: '8px', marginBottom: '15px', fontSize: '13px', border: '1px solid #ffeeba'}}>
               <strong>Atenção:</strong> Você está editando um treino antigo. Modifique os dados e clique em "Atualizar Treino" no final.
             </div>
           )}
-
           <div style={{display: 'flex', gap: '10px'}}>
             <div style={{flex: 2}}><label style={styles.label}>Data:</label><input type="date" style={styles.input} value={dataTreino} onChange={(e) => setDataTreino(e.target.value)} /></div>
             <div style={{flex: 1}}><label style={styles.label}>Hora:</label><input type="time" style={styles.input} value={horaTreino} onChange={(e) => setHoraTreino(e.target.value)} /></div>
           </div>
-          
           <label style={styles.label}>Arma Utilizada:</label>
           <select style={styles.input} value={armaSelecionada} onChange={(e) => setArmaSelecionada(e.target.value)}>
             <option value="">Selecione...</option>
             {armas.map((a: any) => <option key={a.id} value={a.id}>{a.marca} {a.modelo}</option>)}
           </select>
-
           <div style={{display: 'flex', gap: '10px'}}>
             <div style={{flex: 1}}><label style={styles.label}>Qtd Disparos:</label><input type="number" style={styles.input} value={qtdTiros} onChange={(e) => setQtdTiros(e.target.value)} /></div>
             <div style={{flex: 1}}><label style={styles.label}>Munição:</label><select style={styles.input} value={tipoMunicao} onChange={(e) => setTipoMunicao(e.target.value)}><option value="Original">Original</option><option value="Recarregada">Recarregada</option><option value="Dry Fire">Dry Fire</option></select></div>
           </div>
-
           <label style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '15px', backgroundColor: theme.caixaDiagBg, padding: '10px', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold', color: theme.caixaDiagText}}>
             <input type="checkbox" checked={ehHabitualidade} onChange={e => setEhHabitualidade(e.target.checked)} style={{transform: 'scale(1.3)'}} />
             Habitualidade Oficial
           </label>
-          
           <label style={styles.label}>Foto do Alvo:</label>
           <input type="file" accept="image/*" onChange={lidarComUploadAlvo} style={{marginBottom: '15px', color: theme.textMain}} />
-          
           <div style={styles.alvoContainer}>
             <p style={styles.instrucao}>Toque na imagem para marcar acertos (Max: {qtdTiros || '0'})</p>
             <RenderizarAlvo imagem={imagemAlvo} marcacoes={marcacoes} onTargetClick={marcarTiro} />
@@ -622,19 +522,15 @@ export default function LogbookApp({ usuarioLogout }) {
               {marcacoes.length > 0 && <button type="button" onClick={() => setMarcacoes(marcacoes.slice(0,-1))} style={{...styles.btnAcao, color: '#e74c3c', fontSize: '14px', fontWeight: 'bold'}}>Desfazer Último</button>}
             </div>
           </div>
-          
           <div style={{display: 'flex', gap: '10px', marginTop: '15px'}}>
             <button onClick={finalizarSessao} style={{...styles.button, backgroundColor: '#27ae60', flex: 2}}>
               {sessaoEmEdicaoId ? 'Atualizar Treino' : 'Finalizar Treino'}
             </button>
-            {sessaoEmEdicaoId && (
-              <button onClick={cancelarEdicaoSessao} style={{...styles.button, backgroundColor: '#95a5a6', flex: 1}}>Cancelar</button>
-            )}
+            {sessaoEmEdicaoId && <button onClick={cancelarEdicaoSessao} style={{...styles.button, backgroundColor: '#95a5a6', flex: 1}}>Cancelar</button>}
           </div>
         </div>
       )}
 
-      {/* --- ABA 3: RELATÓRIOS E COMPARAÇÕES --- */}
       {telaAtual === 'relatorios' && (
         <div className="no-print">
           <div style={styles.card}>
@@ -647,7 +543,6 @@ export default function LogbookApp({ usuarioLogout }) {
               <option value="">Todas as armas</option>
               {armas.map((a: any) => <option key={a.id} value={a.id}>{a.marca} {a.modelo}</option>)}
             </select>
-            
             <button onClick={() => { setModoComparacao(!modoComparacao); setSessoesParaComparar([]); }} style={{...styles.button, backgroundColor: modoComparacao ? '#e74c3c' : '#8e44ad', marginTop: 0}}>
               {modoComparacao ? 'Cancelar Comparação' : '⚖️ Comparar Períodos'}
             </button>
@@ -691,12 +586,10 @@ export default function LogbookApp({ usuarioLogout }) {
                     </div>
                     {sessao.habitualidade && <span style={{backgroundColor: '#f39c12', color: 'white', fontSize: '10px', padding: '3px 6px', borderRadius: '4px', fontWeight: 'bold'}}>Habitualidade</span>}
                   </div>
-                  
                   <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '14px', marginBottom: '10px'}}>
                     <span><strong>{sessao.armaNome}</strong> <span style={{fontSize: '11px', color: theme.textSec}}>({sessao.municao})</span></span>
                     <span>Tiros: {sessao.tirosDeclarados}</span>
                   </div>
-
                   <div style={styles.caixaDiagnostico}>
                     <div style={{marginBottom: '5px'}}>
                        <strong style={{color: Number(sessao.precisaoScore) > 80 ? '#27ae60' : (Number(sessao.precisaoScore) < 50 ? '#e74c3c' : '#f39c12')}}>
@@ -710,12 +603,10 @@ export default function LogbookApp({ usuarioLogout }) {
                     <div style={{marginTop: '15px', paddingTop: '15px', borderTop: `1px dashed ${theme.borderColor}`}}>
                       <strong style={{display: 'block', marginBottom: '10px', fontSize: '13px'}}>Alvo Registrado:</strong>
                       <RenderizarAlvo imagem={sessao.imagemOriginal} marcacoes={sessao.marcacoesSalvas} />
-                      
                       <div style={{display: 'flex', gap: '10px', marginTop: '15px'}}>
-                        <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); editarSessao(sessao); }} style={{...styles.btnSecundario, flex: 1}}>✏️ Editar Treino</button>
+                        <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); editarSessao(sessao); }} style={{...styles.btnSecundario, flex: 1}}>✏️ Editar</button>
                         <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); excluirSessao(sessao.id); }} style={{...styles.button, backgroundColor: '#e74c3c', flex: 1, padding: '10px', marginTop: 0}}>🗑️ Apagar</button>
                       </div>
-
                     </div>
                   )}
                 </div>
@@ -725,7 +616,6 @@ export default function LogbookApp({ usuarioLogout }) {
         </div>
       )}
 
-      {/* --- ABA 4: PERFIL CAC & HABITUALIDADE --- */}
       {telaAtual === 'cac' && (
         <div>
           <div className="no-print" style={styles.card}>
@@ -733,7 +623,6 @@ export default function LogbookApp({ usuarioLogout }) {
               <h3 style={styles.cardTitle}>Documento do Atirador</h3>
               <button onClick={() => setEditandoPerfil(!editandoPerfil)} style={{...styles.btnAcao, fontSize: '14px', color: '#2980b9'}}>✏️ Editar</button>
             </div>
-            
             {editandoPerfil ? (
               <div style={{marginTop: '10px'}}>
                 <label style={styles.label}>Nome Completo:</label>
@@ -788,7 +677,6 @@ export default function LogbookApp({ usuarioLogout }) {
               realizou as seguintes práticas de tiro desportivo
               {filtroHabInicio && filtroHabFim ? ` no período de ${formatarData(filtroHabInicio)} a ${formatarData(filtroHabFim)}` : ''}:
             </p>
-            
             <table style={{width: '100%', fontSize: '11px', borderCollapse: 'collapse', marginBottom: '30px', tableLayout: 'fixed', color: 'black'}}>
               <thead>
                 <tr style={{backgroundColor: '#eee'}}>
