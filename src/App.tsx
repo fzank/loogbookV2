@@ -1,122 +1,126 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import React, { useState, useEffect } from 'react';
+import { auth } from './firebase';
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  onAuthStateChanged, 
+  signOut,
+  User
+} from 'firebase/auth';
+import LogbookApp from './LogbookApp';
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const [usuario, setUsuario] = useState<User | null>(null);
+  const [carregando, setCarregando] = useState(true);
+  
+  // Estados do Formulário de Login
+  const [email, setEmail] = useState('');
+  const [senha, setSenha] = useState('');
+  const [modoCadastro, setModoCadastro] = useState(false);
+  const [erro, setErro] = useState('');
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
+  // Fica escutando se o usuário está logado ou não
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUsuario(user);
+      setCarregando(false);
+    });
+    return unsubscribe;
+  }, []);
+
+  const lidarComAutenticacao = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErro('');
+    try {
+      if (modoCadastro) {
+        await createUserWithEmailAndPassword(auth, email, senha);
+      } else {
+        await signInWithEmailAndPassword(auth, email, senha);
+      }
+    } catch (error: any) {
+      console.error(error);
+      if (error.code === 'auth/invalid-credential') setErro('E-mail ou senha incorretos.');
+      else if (error.code === 'auth/email-already-in-use') setErro('Este e-mail já está cadastrado.');
+      else if (error.code === 'auth/weak-password') setErro('A senha deve ter pelo menos 6 caracteres.');
+      else setErro('Ocorreu um erro na autenticação. Verifique seus dados.');
+    }
+  };
+
+  const fazerLogout = () => {
+    signOut(auth);
+  };
+
+  if (carregando) {
+    return <div style={{textAlign: 'center', marginTop: '50px', fontFamily: 'system-ui'}}>Carregando sistema...</div>;
+  }
+
+  // Se estiver logado, exibe o aplicativo completo passando a função de logout
+  if (usuario) {
+    return (
+      <>
+        {/* Um botão flutuante de logout para segurança */}
+        <button 
+          onClick={fazerLogout}
+          style={{
+            position: 'fixed', top: '15px', left: '15px', zIndex: 1000, 
+            backgroundColor: '#e74c3c', color: 'white', border: 'none', 
+            borderRadius: '4px', padding: '5px 10px', fontWeight: 'bold', cursor: 'pointer'
+          }}
         >
-          Count is {count}
+          Sair
         </button>
-      </section>
+        <LogbookApp usuarioLogout={fazerLogout} />
+      </>
+    );
+  }
 
-      <div className="ticks"></div>
+  // Se NÃO estiver logado, exibe a tela de login profissional
+  return (
+    <div style={{ fontFamily: 'system-ui, sans-serif', padding: '20px', maxWidth: '400px', margin: '50px auto', backgroundColor: '#f4f4f9', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+      <h2 style={{ textAlign: 'center', color: '#2c3e50' }}>🎯 Logbook de Tiro v2.0</h2>
+      <p style={{ textAlign: 'center', color: '#7f8c8d', fontSize: '14px', marginBottom: '25px' }}>
+        Acesso Seguro à Nuvem (CAC)
+      </p>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+      {erro && (
+        <div style={{ backgroundColor: '#f8d7da', color: '#721c24', padding: '10px', borderRadius: '8px', marginBottom: '15px', fontSize: '13px', textAlign: 'center' }}>
+          {erro}
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+      )}
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+      <form onSubmit={lidarComAutenticacao}>
+        <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#555' }}>E-mail:</label>
+        <input 
+          type="email" 
+          required 
+          value={email} 
+          onChange={e => setEmail(e.target.value)} 
+          style={{ width: '100%', padding: '10px', marginBottom: '15px', borderRadius: '8px', border: '1px solid #ccc', boxSizing: 'border-box' }} 
+        />
+
+        <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#555' }}>Senha:</label>
+        <input 
+          type="password" 
+          required 
+          value={senha} 
+          onChange={e => setSenha(e.target.value)} 
+          style={{ width: '100%', padding: '10px', marginBottom: '20px', borderRadius: '8px', border: '1px solid #ccc', boxSizing: 'border-box' }} 
+        />
+
+        <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#2980b9', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '15px' }}>
+          {modoCadastro ? 'Criar Nova Conta' : 'Entrar no Acervo'}
+        </button>
+      </form>
+
+      <div style={{ textAlign: 'center', marginTop: '20px' }}>
+        <button 
+          type="button" 
+          onClick={() => { setModoCadastro(!modoCadastro); setErro(''); }} 
+          style={{ background: 'none', border: 'none', color: '#2980b9', textDecoration: 'underline', cursor: 'pointer', fontSize: '13px' }}
+        >
+          {modoCadastro ? 'Já tenho uma conta. Fazer Login.' : 'Ainda não tenho conta. Criar uma agora.'}
+        </button>
+      </div>
+    </div>
+  );
 }
-
-export default App
