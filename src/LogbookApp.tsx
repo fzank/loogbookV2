@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { auth } from './firebase';
+import { signOut } from 'firebase/auth';
 
 const ALVO_CIRCULAR: string = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23e0e0e0'/%3E%3Ccircle cx='50' cy='50' r='45' fill='white' stroke='black' stroke-width='1'/%3E%3Ccircle cx='50' cy='50' r='35' fill='white' stroke='black' stroke-width='1'/%3E%3Ccircle cx='50' cy='50' r='25' fill='white' stroke='black' stroke-width='1'/%3E%3Ccircle cx='50' cy='50' r='15' fill='black'/%3E%3Ccircle cx='50' cy='50' r='5' fill='none' stroke='white' stroke-width='1'/%3E%3C/svg%3E";
 const ALVO_HUMANOIDE: string = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%232c3e50'/%3E%3Cpath d='M 40 5 C 40 2, 60 2, 60 5 L 60 18 C 75 18, 85 25, 85 40 L 80 100 L 20 100 L 15 40 C 15 25, 25 18, 40 18 Z' fill='%23ecf0f1'/%3E%3Cpath d='M 20 80 Q 50 90 80 80' fill='none' stroke='%23bdc3c7' stroke-width='0.5'/%3E%3Cpath d='M 15 60 Q 50 75 85 60' fill='none' stroke='%23bdc3c7' stroke-width='0.5'/%3E%3Cpath d='M 25 35 Q 50 50 75 35' fill='none' stroke='%23bdc3c7' stroke-width='0.5'/%3E%3Ccircle cx='50' cy='45' r='8' fill='none' stroke='%23bdc3c7' stroke-width='0.5'/%3E%3Ccircle cx='50' cy='12' r='3' fill='none' stroke='%23bdc3c7' stroke-width='0.5'/%3E%3C/svg%3E";
@@ -644,9 +646,14 @@ export default function LogbookApp() {
 
       <div className="no-print" style={{display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative', marginBottom: '20px'}}>
         <h2 style={{textAlign: 'center', margin: 0}}>🎯 Logbook v2.0</h2>
-        <button onClick={() => setIsDarkMode(!isDarkMode)} style={{position: 'absolute', right: 0, background: 'none', border: 'none', fontSize: '22px'}}>
-          {isDarkMode ? '☀️' : '🌙'}
-        </button>
+        <div style={{position: 'absolute', right: 0, display: 'flex', gap: '10px', alignItems: 'center'}}>
+          <button onClick={() => setIsDarkMode(!isDarkMode)} style={{background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', padding: 0}}>
+            {isDarkMode ? '☀️' : '🌙'}
+          </button>
+          <button onClick={() => signOut(auth)} style={{background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', padding: 0, color: '#e74c3c'}} title="Sair">
+            ⏻
+          </button>
+        </div>
       </div>
 
       {/* ABA DO ACERVO */}
@@ -707,85 +714,81 @@ export default function LogbookApp() {
             <ul style={{ listStyleType: 'none', padding: 0, margin: 0 }}>
               {(abaAcervo === 'pessoal' ? armas : armasClube).map((a: any) => {
                 const stats = calcularTirosArma(a.id, abaAcervo === 'clube');
-                const isExpanded = armaExpandida === a.id;
                 
                 return (
-                  <li key={a.id} style={{ border: `1px solid ${theme.itemBorder}`, padding: '10px', borderRadius: '8px', marginBottom: '10px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => setArmaExpandida(isExpanded ? null : a.id)}>
-                      <div>
-                        <strong style={{ display: 'block', fontSize: '15px' }}>{a.marca} {a.modelo}</strong>
-                        <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-                          {a.calibre && <span style={{ backgroundColor: '#34495e', color: 'white', padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' }}>{a.calibre}</span>}
-                          <span style={{ backgroundColor: '#e67e22', color: 'white', padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' }}>{stats.total} Tiros</span>
-                        </div>
-                      </div>
-                      <div style={{color: theme.textSec}}>{isExpanded ? '▲' : '▼'}</div>
-                    </div>
+                  <li key={a.id} style={{ backgroundColor: theme.cardRelatorioBg, padding: '15px', borderRadius: '8px', marginBottom: '15px', border: `1px solid ${theme.itemBorder}` }}>
                     
-                    {isExpanded && (
-                      <div style={{marginTop: '15px', paddingTop: '15px', borderTop: `1px dashed ${theme.borderColor}`}}>
-                        
-                        <div style={{backgroundColor: theme.cardRelatorioBg, padding: '10px', borderRadius: '8px', marginBottom: '10px'}}>
-                          <strong style={{fontSize: '12px', display: 'block', marginBottom: '5px'}}>Desgaste por Munição:</strong>
-                          {Object.keys(stats.porMunicao).length > 0 ? (
-                            Object.entries(stats.porMunicao).map(([tipo, qtd]) => (
-                              <div key={tipo} style={{display: 'flex', justifyContent: 'space-between', fontSize: '12px', borderBottom: '1px solid #ccc', padding: '2px 0'}}>
-                                <span>{tipo}</span> <strong>{qtd as number}</strong>
-                              </div>
-                            ))
-                          ) : <span style={{fontSize: '12px', color: theme.textSec}}>Arma sem disparos registrados.</span>}
+                    {/* Header do Card (V1 Style) */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                       <div>
+                          <strong style={{ fontSize: '16px', display: 'block', color: theme.textMain }}>{a.marca} {a.modelo}</strong>
+                          <div style={{ display: 'flex', gap: '8px', marginTop: '8px', marginBottom: '10px' }}>
+                             {a.calibre && <span style={{ backgroundColor: '#34495e', color: 'white', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' }}>{a.calibre}</span>}
+                             <span style={{ backgroundColor: '#8e44ad', color: 'white', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' }}>🎯 {stats.total} tiros</span>
+                          </div>
+                       </div>
+                       <div style={{ display: 'flex', gap: '10px' }}>
+                          <button onClick={() => editarArma(a)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px' }}>✏️</button>
+                          <button onClick={() => excluirArma(a.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px' }}>🗑️</button>
+                       </div>
+                    </div>
+
+                    <div style={{ marginTop: '5px' }}>
+                      {/* Documentos (Apenas Pessoal) */}
+                      {abaAcervo === 'pessoal' && (
+                        <div style={{ backgroundColor: isDarkMode ? '#2c3e50' : '#e2e8f0', padding: '12px', borderRadius: '6px', margin: '12px 0', fontSize: '13px' }}>
+                           <p style={{margin: '0 0 6px 0'}}><strong>CRAF:</strong> {a.craf || 'Não inf.'} {a.validadeCraf ? ` (Val: ${formatarData(a.validadeCraf)})` : ''}</p>
+                           <p style={{margin: 0}}><strong>GT:</strong> {a.gt || 'Não inf.'} {a.validadeGt ? ` (Val: ${formatarData(a.validadeGt)})` : ''}</p>
                         </div>
+                      )}
 
-                        {abaAcervo === 'pessoal' && (
-                          <>
-                            <div style={{backgroundColor: theme.cardRelatorioBg, padding: '10px', borderRadius: '8px', marginBottom: '10px'}}>
-                              <strong style={{fontSize: '12px', display: 'block', marginBottom: '5px'}}>Registro ({a.orgao}):</strong>
-                              <div style={{fontSize: '12px', marginBottom: '4px'}}>
-                                <strong>CRAF:</strong> {a.craf || 'N/A'} - Val: {formatarData(a.validadeCraf) || 'N/A'} 
-                                {a.validadeCraf && <span style={{marginLeft: '5px', color: verificarValidade(a.validadeCraf).cor, fontWeight: 'bold'}}>({verificarValidade(a.validadeCraf).texto})</span>}
-                              </div>
-                              <div style={{fontSize: '12px'}}>
-                                <strong>GT:</strong> {a.gt || 'N/A'} - Val: {formatarData(a.validadeGt) || 'N/A'}
-                                {a.validadeGt && <span style={{marginLeft: '5px', color: verificarValidade(a.validadeGt).cor, fontWeight: 'bold'}}>({verificarValidade(a.validadeGt).texto})</span>}
-                              </div>
-                            </div>
+                      <div style={{ borderTop: `1px dashed ${theme.borderColor}`, margin: '15px 0' }} />
 
-                            <div style={{backgroundColor: theme.cardRelatorioBg, padding: '10px', borderRadius: '8px', marginBottom: '10px'}}>
-                              <strong style={{fontSize: '12px', display: 'block', marginBottom: '5px'}}>Manutenção Expressa:</strong>
-                              <div style={{display: 'flex', gap: '5px'}}>
-                                <input type="date" style={{...styles.input, marginBottom: 0, padding: '5px', fontSize: '11px', flex: 1}} value={dataNovaManutencao} onChange={e => setDataNovaManutencao(e.target.value)} />
-                                <button onClick={() => registrarLimpeza(a.id)} style={{backgroundColor: '#27ae60', color: 'white', border: 'none', borderRadius: '4px', padding: '5px 10px', fontSize: '11px', cursor: 'pointer', fontWeight: 'bold'}}>Marcar Última Limpeza</button>
-                              </div>
-                              {a.dataUltimaLimpeza && <p style={{fontSize: '11px', margin: '5px 0 0 0', color: '#27ae60'}}>✅ Realizada em {formatarData(a.dataUltimaLimpeza)}</p>}
-                            </div>
-
-                            <div style={{backgroundColor: theme.cardRelatorioBg, padding: '10px', borderRadius: '8px', marginBottom: '15px'}}>
-                              <strong style={{fontSize: '12px', display: 'block', marginBottom: '5px'}}>Histórico de Manutenção e Peças:</strong>
-                              <div style={{display: 'flex', gap: '5px', marginBottom: '10px'}}>
-                                <input type="date" style={{...styles.input, marginBottom: 0, padding: '5px', fontSize: '11px', flex: 1}} value={dataNovaManutencao} onChange={e => setDataNovaManutencao(e.target.value)} />
-                                <input type="text" placeholder="Ex: Troca de Mola" style={{...styles.input, marginBottom: 0, padding: '5px', fontSize: '11px', flex: 2}} value={descNovaManutencao} onChange={e => setDescNovaManutencao(e.target.value)} />
-                                <button onClick={() => adicionarManutencao(a.id)} style={{backgroundColor: '#2980b9', color: 'white', border: 'none', borderRadius: '4px', padding: '5px 10px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold'}}>+</button>
-                              </div>
-                              
-                              <ul style={{listStyle: 'none', padding: 0, margin: 0, fontSize: '11px', maxHeight: '100px', overflowY: 'auto'}}>
-                                {(a.historicoManutencao || []).map((m: any, idx: number) => (
-                                  <li key={idx} style={{display: 'flex', justifyContent: 'space-between', borderBottom: `1px solid ${theme.itemBorder}`, padding: '4px 0'}}>
-                                    <span><strong>{formatarData(m.data)}:</strong> {m.descricao}</span>
-                                    <button onClick={() => excluirManutencao(a.id, idx)} style={{background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer'}}>✖</button>
-                                  </li>
-                                ))}
-                                {!(a.historicoManutencao && a.historicoManutencao.length > 0) && <li style={{color: theme.textSec}}>Nenhum registro de peça ou reparo.</li>}
-                              </ul>
-                            </div>
-                          </>
-                        )}
-
-                        <div style={{display: 'flex', gap: '10px'}}>
-                          <button onClick={() => editarArma(a)} style={{...styles.button, backgroundColor: '#f39c12', flex: 1, padding: '8px'}}>✏️ Editar</button>
-                          <button onClick={() => excluirArma(a.id)} style={{...styles.button, backgroundColor: '#e74c3c', flex: 1, padding: '8px'}}>🗑️ Excluir</button>
+                      {/* Consumo de Munição (Blocos V1) */}
+                      <div style={{ textAlign: 'center', marginBottom: '15px' }}>
+                        <strong style={{ fontSize: '13px', color: theme.textMain }}>📊 Consumo de Munição</strong>
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '10px' }}>
+                           <div style={{ flex: 1, border: `2px solid ${isDarkMode ? '#3498db' : '#2980b9'}`, padding: '6px 0', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', color: theme.textMain, backgroundColor: isDarkMode ? 'rgba(52, 152, 219, 0.1)' : '#eaf2f8' }}>Orig.: {stats.porMunicao['Original'] || 0}</div>
+                           <div style={{ flex: 1, border: `2px solid ${isDarkMode ? '#f39c12' : '#d35400'}`, padding: '6px 0', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', color: theme.textMain, backgroundColor: isDarkMode ? 'rgba(243, 156, 18, 0.1)' : '#fef5e7' }}>Recarg.: {stats.porMunicao['Recarregada'] || 0}</div>
+                           <div style={{ flex: 1, border: `2px solid ${isDarkMode ? '#e74c3c' : '#c0392b'}`, padding: '6px 0', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', color: theme.textMain, backgroundColor: isDarkMode ? 'rgba(231, 76, 60, 0.1)' : '#fdedec' }}>Dry Fire: {stats.porMunicao['Dry Fire'] || 0}</div>
                         </div>
                       </div>
-                    )}
+
+                      {/* Controle de Manutenção (Apenas Pessoal) */}
+                      {abaAcervo === 'pessoal' && (
+                        <>
+                          <div style={{ borderTop: `1px dashed ${theme.borderColor}`, margin: '15px 0' }} />
+                          <div style={{ textAlign: 'center', marginBottom: '15px' }}>
+                            <strong style={{ fontSize: '13px', color: theme.textMain }}>🛠️ Controle de Manutenção</strong>
+                          </div>
+
+                          <div style={{ backgroundColor: '#34495e', padding: '10px', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ color: 'white', fontSize: '12px', fontWeight: 'bold' }}>Limpeza:</span>
+                              <input type="date" style={{ padding: '4px', borderRadius: '4px', border: 'none', fontSize: '11px', backgroundColor: '#ecf0f1', color: '#2c3e50', outline: 'none' }} value={dataNovaManutencao} onChange={e => setDataNovaManutencao(e.target.value)} />
+                            </div>
+                            <button onClick={() => registrarLimpeza(a.id)} style={{ background: 'none', border: 'none', color: 'white', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}>Limpei Hoje</button>
+                          </div>
+                          {a.dataUltimaLimpeza && <p style={{ fontSize: '11px', margin: '-5px 0 10px 0', color: theme.textSec, textAlign: 'center' }}>Última limpeza: {formatarData(a.dataUltimaLimpeza)}</p>}
+
+                          <div style={{ display: 'flex', gap: '5px', marginBottom: '10px' }}>
+                             <input type="date" style={{...styles.input, marginBottom: 0, padding: '8px', fontSize: '11px', flex: 1}} value={dataNovaManutencao} onChange={e => setDataNovaManutencao(e.target.value)} />
+                             <input type="text" placeholder="Ex: Troca de mola" style={{...styles.input, marginBottom: 0, padding: '8px', fontSize: '11px', flex: 2}} value={descNovaManutencao} onChange={e => setDescNovaManutencao(e.target.value)} />
+                             <button onClick={() => adicionarManutencao(a.id)} style={{backgroundColor: '#2980b9', color: 'white', border: 'none', borderRadius: '6px', padding: '0 12px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold'}}>Add</button>
+                          </div>
+                          
+                          <ul style={{listStyle: 'none', padding: 0, margin: 0, fontSize: '11px', maxHeight: '100px', overflowY: 'auto'}}>
+                            {(a.historicoManutencao || []).map((m: any, idx: number) => (
+                              <li key={idx} style={{display: 'flex', justifyContent: 'space-between', borderBottom: `1px solid ${theme.itemBorder}`, padding: '6px 0', color: theme.textMain}}>
+                                <span><strong>{formatarData(m.data)}:</strong> {m.descricao}</span>
+                                <button onClick={() => excluirManutencao(a.id, idx)} style={{background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer'}}>✖</button>
+                              </li>
+                            ))}
+                            {!(a.historicoManutencao && a.historicoManutencao.length > 0) && <li style={{color: theme.textSec, textAlign: 'center', padding: '5px 0'}}>Nenhum registro de peça ou reparo.</li>}
+                          </ul>
+                        </>
+                      )}
+                    </div>
                   </li>
                 );
               })}
@@ -979,6 +982,7 @@ export default function LogbookApp() {
                     <div style={{marginTop: '15px', paddingTop: '15px', borderTop: `1px dashed ${theme.borderColor}`}}>
                       <RenderizarAlvo imagem={sessao.imagemOriginal} marcacoes={sessao.marcacoesSalvas} />
                       
+                      {/* CAIXA DE ANÁLISE DETALHADA */}
                       {(sessao.diagnosticos && sessao.diagnosticos.length > 0) && (
                         <div style={{ backgroundColor: theme.caixaDiagBg, padding: '12px', borderRadius: '8px', marginTop: '15px', border: `1px solid ${theme.borderColor}` }}>
                           <h4 style={{ margin: '0 0 8px 0', fontSize: '13px', color: theme.caixaDiagText }}>🧠 Análise de Fundamentos</h4>
