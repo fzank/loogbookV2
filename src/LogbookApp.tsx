@@ -163,7 +163,6 @@ export default function LogbookApp() {
   const [abaAcervo, setAbaAcervo] = useState<'pessoal' | 'clube'>('pessoal');
   const [novaArma, setNovaArma] = useState<any>({ marca: '', modelo: '', calibre: '', orgao: 'Sigma', craf: '', validadeCraf: '', gt: '', validadeGt: '', historicoManutencao: [] });
   const [armaEmEdicao, setArmaEmEdicao] = useState<number | null>(null);
-  const [armaExpandida, setArmaExpandida] = useState<number | null>(null);
   const [mostrarCamposAvancados, setMostrarCamposAvancados] = useState<boolean>(false);
   const [dataNovaManutencao, setDataNovaManutencao] = useState<string>(obterDataHoje());
   const [descNovaManutencao, setDescNovaManutencao] = useState<string>('');
@@ -982,7 +981,7 @@ export default function LogbookApp() {
                     <div style={{marginTop: '15px', paddingTop: '15px', borderTop: `1px dashed ${theme.borderColor}`}}>
                       <RenderizarAlvo imagem={sessao.imagemOriginal} marcacoes={sessao.marcacoesSalvas} />
                       
-                      {/* CAIXA DE ANÁLISE DETALHADA */}
+                      {/* CAIXA DE ANÁLISE DETALHADA RESTAURADA */}
                       {(sessao.diagnosticos && sessao.diagnosticos.length > 0) && (
                         <div style={{ backgroundColor: theme.caixaDiagBg, padding: '12px', borderRadius: '8px', marginTop: '15px', border: `1px solid ${theme.borderColor}` }}>
                           <h4 style={{ margin: '0 0 8px 0', fontSize: '13px', color: theme.caixaDiagText }}>🧠 Análise de Fundamentos</h4>
