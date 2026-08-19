@@ -128,9 +128,7 @@ const RenderizarAlvo: React.FC<RenderizarAlvoProps> = ({ imagem, marcacoes, onTa
   </div>
 );
 
-interface LogbookAppProps { usuarioLogout?: () => void; }
-
-export default function LogbookApp({ usuarioLogout }: LogbookAppProps) {
+export default function LogbookApp() {
   const [telaAtual, setTelaAtual] = useState<string>('arsenal');
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => loadData('logbook_darkmode', false));
   const [perfil, setPerfil] = useState(() => loadData('logbook_perfil', { nome: 'Atirador', cr: '', validadeCr: '', clubeAfiliado: '' }));
@@ -160,7 +158,6 @@ export default function LogbookApp({ usuarioLogout }: LogbookAppProps) {
     itemBorder: isDarkMode ? '#333' : '#eee', caixaDiagText: isDarkMode ? '#ecf0f1' : '#2c3e50' 
   };
   
-  // States do Arsenal
   const [abaAcervo, setAbaAcervo] = useState<'pessoal' | 'clube'>('pessoal');
   const [novaArma, setNovaArma] = useState<any>({ marca: '', modelo: '', calibre: '', orgao: 'Sigma', craf: '', validadeCraf: '', gt: '', validadeGt: '', historicoManutencao: [] });
   const [armaEmEdicao, setArmaEmEdicao] = useState<number | null>(null);
@@ -169,12 +166,10 @@ export default function LogbookApp({ usuarioLogout }: LogbookAppProps) {
   const [dataNovaManutencao, setDataNovaManutencao] = useState<string>(obterDataHoje());
   const [descNovaManutencao, setDescNovaManutencao] = useState<string>('');
   
-  // States do CAC
   const [editandoPerfil, setEditandoPerfil] = useState<boolean>(false);
   const [filtroHabInicio, setFiltroHabInicio] = useState<string>('');
   const [filtroHabFim, setFiltroHabFim] = useState<string>('');
   
-  // States de Treino
   const [sessaoEmEdicaoId, setSessaoEmEdicaoId] = useState<number | null>(null);
   const [tipoArmaTreino, setTipoArmaTreino] = useState<'acervo' | 'clube'>('acervo');
   const [armaSelecionada, setArmaSelecionada] = useState<string>('');
@@ -195,7 +190,6 @@ export default function LogbookApp({ usuarioLogout }: LogbookAppProps) {
   const [marcacoes, setMarcacoes] = useState<Marcacao[]>([]);
   const [isAutoScanning, setIsAutoScanning] = useState<boolean>(false);
   
-  // States de Comparação & Filtros
   const [modoComparacao, setModoComparacao] = useState<boolean>(false);
   const [sessoesParaComparar, setSessoesParaComparar] = useState<any[]>([]);
   const [sessaoExpandida, setSessaoExpandida] = useState<number | null>(null);
@@ -268,7 +262,7 @@ export default function LogbookApp({ usuarioLogout }: LogbookAppProps) {
     }
   };
 
-  // SCANNER DEFINITIVO: Contraste Local + Margem Rígida
+  // SCANNER DE CONTRASTE LOCAL OTIMIZADO
   const escanearFuros = (img: HTMLImageElement) => {
     if (imagemAlvo === ALVO_CIRCULAR || imagemAlvo === ALVO_HUMANOIDE) return;
     
@@ -292,8 +286,6 @@ export default function LogbookApp({ usuarioLogout }: LogbookAppProps) {
     
     const binaryMap = new Uint8Array(w * h);
     const lumaMap = new Uint8Array(w * h);
-    
-    // Threshold seguro para pegar furos normais e bordas cinzas (135)
     const THRESHOLD = 135; 
     
     for (let y = 0; y < h; y++) {
@@ -341,8 +333,6 @@ export default function LogbookApp({ usuarioLogout }: LogbookAppProps) {
     }
 
     const validHoles: {x: number, y: number}[] = [];
-    
-    // ZONA DE EXCLUSÃO (Mata os Logos nas extremidades e fundo preto nas bordas)
     const marginX = w * 0.12; 
     const marginY = h * 0.12; 
 
@@ -356,39 +346,30 @@ export default function LogbookApp({ usuarioLogout }: LogbookAppProps) {
 
       if (cx < marginX || cx > w - marginX || cy < marginY || cy > h - marginY) continue;
 
-      // > 400 pixels ignora o mosca central que é muito maior.
       if (!blob.touchesEdge && blob.pixels >= 5 && blob.pixels <= 400 && aspect <= 3.0 && density >= 0.25) {
-          
           const margin = 15;
           let bgLumaSum = 0;
           let bgCount = 0;
           let darkNeighbors = 0;
 
-          // Avalia uma caixa um pouco maior que a mancha
-          for(let py = cy - margin; py <= cy + margin; py += 3) {
-              for(let px = cx - margin; px <= cx + margin; px += 3) {
-                  // Ignora os pixels que fazem parte do próprio buraco
+          for(let py = cy - margin; py <= cy + margin; py += 2) {
+              for(let px = cx - margin; px <= cx + margin; px += 2) {
                   if (Math.abs(px - cx) < width/2 && Math.abs(py - cy) < height/2) continue;
 
                   if (px >= 0 && px < w && py >= 0 && py < h) {
                       const luma = lumaMap[py * w + px];
                       bgLumaSum += luma;
                       bgCount++;
-                      // < 90 indica tinta preta intensa (como a silhueta ou logotipos)
                       if (luma < 90) darkNeighbors++;
                   }
               }
           }
 
-          // REGRA 1: Não pode estar cercado de muito preto (Mata manchas no fundo preto e logos centrais)
           if (bgCount > 0 && (darkNeighbors / bgCount) > 0.40) continue;
 
-          // REGRA 2: Contraste Local (Mata obréias/patches cinzas coladas no papel)
           const avgBgLuma = bgCount > 0 ? bgLumaSum / bgCount : 255;
           const coreLuma = blob.sumLuma / blob.pixels;
           
-          // O fundo (papel) deve ser pelo menos 10 tons mais claro que o buraco. 
-          // Patches têm a mesma cor, buracos são escuros.
           if (avgBgLuma - coreLuma > 10) {
               validHoles.push({ x: cx / w, y: cy / h });
           }
@@ -399,7 +380,6 @@ export default function LogbookApp({ usuarioLogout }: LogbookAppProps) {
     setQtdTiros(validHoles.length.toString()); 
   };
 
-  // CLIQUE AJUSTADO PARA DISTÂNCIA EM PIXELS REAIS (Fim dos apagamentos acidentais)
   const marcarTiro = (e: React.MouseEvent<HTMLImageElement>) => { 
     const rect = e.currentTarget.getBoundingClientRect(); 
     const xPx = e.clientX - rect.left;
@@ -408,7 +388,7 @@ export default function LogbookApp({ usuarioLogout }: LogbookAppProps) {
     const xRatio = xPx / rect.width;
     const yRatio = yPx / rect.height;
 
-    const RAIO_PX = 15; // Apenas 15 pixels de área de clique para apagar
+    const RAIO_PX = 15; 
 
     const indexParaRemover = marcacoes.findIndex(m => {
       const mxPx = m.x * rect.width;
@@ -486,7 +466,6 @@ export default function LogbookApp({ usuarioLogout }: LogbookAppProps) {
     setTelaAtual('treino');
   };
 
-  // Funções do Acervo (Arsenal) Pessoal e Clube
   const salvarArma = (e: React.FormEvent) => { 
     e.preventDefault(); 
     if (!novaArma.marca || !novaArma.calibre) return alert("Preencha Marca e Calibre.");
@@ -550,7 +529,6 @@ export default function LogbookApp({ usuarioLogout }: LogbookAppProps) {
     return { total, porMunicao };
   };
 
-  // Funções do CAC
   const salvarPeriodoHabitualidade = () => {
     if (!filtroHabInicio || !filtroHabFim) return alert("Defina a Data Inicial e Final.");
     setRelatoriosHabSalvos([{ id: Date.now(), inicio: filtroHabInicio, fim: filtroHabFim, criacao: obterDataHoje() }, ...relatoriosHabSalvos]);
@@ -574,7 +552,6 @@ export default function LogbookApp({ usuarioLogout }: LogbookAppProps) {
     link.click();
   };
 
-  // Funções do Logbook (Ordenação e Filtro)
   let sessoesLogbookFiltradas = historicoSessoes.filter((s: any) => {
     if (filtroArmaLogbook && s.armaId?.toString() !== filtroArmaLogbook) return false;
     if (filtroDataInicioLogbook && s.data < filtroDataInicioLogbook) return false;
@@ -1109,7 +1086,7 @@ export default function LogbookApp({ usuarioLogout }: LogbookAppProps) {
         </div>
       )}
 
-      <div className="no-print" style={styles.navBar}>
+      <div className="no-print" style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '400px', display: 'flex', backgroundColor: theme.navBg, borderTop: `1px solid ${theme.borderColor}`, padding: '5px 0', zIndex: 10 }}>
         <button style={{flex: 1, border: 'none', background: 'none', color: telaAtual === 'arsenal' ? '#2980b9' : '#7f8c8d'}} onClick={() => setTelaAtual('arsenal')}>🔫 Acervo</button>
         <button style={{flex: 1, border: 'none', background: 'none', color: telaAtual === 'treino' ? '#2980b9' : '#7f8c8d'}} onClick={() => setTelaAtual('treino')}>🎯 Treino</button>
         <button style={{flex: 1, border: 'none', background: 'none', color: telaAtual === 'relatorios' ? '#2980b9' : '#7f8c8d'}} onClick={() => setTelaAtual('relatorios')}>📊 Logbook</button>
