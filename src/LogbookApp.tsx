@@ -111,7 +111,7 @@ interface RenderizarAlvoProps {
   marcacoes: Marcacao[];
   onTargetClick?: (e: React.MouseEvent<HTMLImageElement>) => void;
   onImgLoad?: (e: React.SyntheticEvent<HTMLImageElement>) => void;
-  imgRef?: React.RefObject<HTMLImageElement | null>; // Corrigido TS2322
+  imgRef?: React.RefObject<HTMLImageElement | null>;
 }
 
 const RenderizarAlvo: React.FC<RenderizarAlvoProps> = ({ imagem, marcacoes, onTargetClick, onImgLoad, imgRef }) => (
@@ -178,8 +178,8 @@ export default function LogbookApp() {
   const [novaArmaClubeMarca, setNovaArmaClubeMarca] = useState<string>('');
   const [novaArmaClubeCalibre, setNovaArmaClubeCalibre] = useState<string>('');
   
-  const [dataTreino] = useState<string>(obterDataHoje()); // Removido setDataTreino não utilizado (Corrigido TS6133)
-  const [horaTreino] = useState<string>(obterHoraAtual()); // Removido setHoraTreino não utilizado
+  const [dataTreino, setDataTreino] = useState<string>(obterDataHoje());
+  const [horaTreino, setHoraTreino] = useState<string>(obterHoraAtual());
   const [qtdTiros, setQtdTiros] = useState<string>('');
   const [distancia, setDistancia] = useState<string>('10'); 
   const [tipoMunicao, setTipoMunicao] = useState<string>('Original');
@@ -255,7 +255,7 @@ export default function LogbookApp() {
     if (fileInputRef.current) fileInputRef.current.value = ''; 
   };
 
-  const lidarCarregamentoImagem = () => { // Removido parâmetro 'e' não utilizado (Corrigido TS6133)
+  const lidarCarregamentoImagem = () => {
     if (isAutoScanning && imgAlvoRef.current) {
       escanearFuros(imgAlvoRef.current);
       setIsAutoScanning(false);
@@ -409,6 +409,8 @@ export default function LogbookApp() {
 
   const limparFormularioTreino = () => {
     setSessaoEmEdicaoId(null);
+    setDataTreino(obterDataHoje());
+    setHoraTreino(obterHoraAtual());
     setQtdTiros(''); setMarcacoes([]); 
     setImagemAlvo(tipoAlvoPadrao === 'circular' ? ALVO_CIRCULAR : ALVO_HUMANOIDE); 
     if (fileInputRef.current) fileInputRef.current.value = '';
