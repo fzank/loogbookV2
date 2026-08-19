@@ -111,7 +111,7 @@ interface RenderizarAlvoProps {
   marcacoes: Marcacao[];
   onTargetClick?: (e: React.MouseEvent<HTMLImageElement>) => void;
   onImgLoad?: (e: React.SyntheticEvent<HTMLImageElement>) => void;
-  imgRef?: React.RefObject<HTMLImageElement>;
+  imgRef?: React.RefObject<HTMLImageElement | null>; // Corrigido TS2322
 }
 
 const RenderizarAlvo: React.FC<RenderizarAlvoProps> = ({ imagem, marcacoes, onTargetClick, onImgLoad, imgRef }) => (
@@ -178,8 +178,8 @@ export default function LogbookApp() {
   const [novaArmaClubeMarca, setNovaArmaClubeMarca] = useState<string>('');
   const [novaArmaClubeCalibre, setNovaArmaClubeCalibre] = useState<string>('');
   
-  const [dataTreino, setDataTreino] = useState<string>(obterDataHoje());
-  const [horaTreino, setHoraTreino] = useState<string>(obterHoraAtual());
+  const [dataTreino] = useState<string>(obterDataHoje()); // Removido setDataTreino não utilizado (Corrigido TS6133)
+  const [horaTreino] = useState<string>(obterHoraAtual()); // Removido setHoraTreino não utilizado
   const [qtdTiros, setQtdTiros] = useState<string>('');
   const [distancia, setDistancia] = useState<string>('10'); 
   const [tipoMunicao, setTipoMunicao] = useState<string>('Original');
@@ -255,14 +255,13 @@ export default function LogbookApp() {
     if (fileInputRef.current) fileInputRef.current.value = ''; 
   };
 
-  const lidarCarregamentoImagem = (e: React.SyntheticEvent<HTMLImageElement>) => {
+  const lidarCarregamentoImagem = () => { // Removido parâmetro 'e' não utilizado (Corrigido TS6133)
     if (isAutoScanning && imgAlvoRef.current) {
       escanearFuros(imgAlvoRef.current);
       setIsAutoScanning(false);
     }
   };
 
-  // SCANNER DE CONTRASTE LOCAL OTIMIZADO
   const escanearFuros = (img: HTMLImageElement) => {
     if (imagemAlvo === ALVO_CIRCULAR || imagemAlvo === ALVO_HUMANOIDE) return;
     
@@ -1086,7 +1085,7 @@ export default function LogbookApp() {
         </div>
       )}
 
-      <div className="no-print" style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '400px', display: 'flex', backgroundColor: theme.navBg, borderTop: `1px solid ${theme.borderColor}`, padding: '5px 0', zIndex: 10 }}>
+      <div className="no-print" style={styles.navBar}>
         <button style={{flex: 1, border: 'none', background: 'none', color: telaAtual === 'arsenal' ? '#2980b9' : '#7f8c8d'}} onClick={() => setTelaAtual('arsenal')}>🔫 Acervo</button>
         <button style={{flex: 1, border: 'none', background: 'none', color: telaAtual === 'treino' ? '#2980b9' : '#7f8c8d'}} onClick={() => setTelaAtual('treino')}>🎯 Treino</button>
         <button style={{flex: 1, border: 'none', background: 'none', color: telaAtual === 'relatorios' ? '#2980b9' : '#7f8c8d'}} onClick={() => setTelaAtual('relatorios')}>📊 Logbook</button>

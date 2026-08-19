@@ -4,9 +4,8 @@ import {
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   signInWithPopup,
-  onAuthStateChanged, 
-  signOut,
-  type User // Correção para o erro TS1484
+  onAuthStateChanged,
+  type User 
 } from 'firebase/auth';
 import LogbookApp from './LogbookApp';
 
@@ -15,7 +14,7 @@ export default function App() {
   const [carregando, setCarregando] = useState(true);
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
-  const [modoCadastro, setModoCadastro] = useState(false);
+  const [modoCadastro] = useState(false); // Corrigido TS6133
   const [erro, setErro] = useState('');
 
   useEffect(() => {
