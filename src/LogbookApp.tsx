@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
-const ALVO_PADRAO: string = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23e0e0e0'/%3E%3Ccircle cx='50' cy='50' r='45' fill='white' stroke='black' stroke-width='1'/%3E%3Ccircle cx='50' cy='50' r='35' fill='white' stroke='black' stroke-width='1'/%3E%3Ccircle cx='50' cy='50' r='25' fill='white' stroke='black' stroke-width='1'/%3E%3Ccircle cx='50' cy='50' r='15' fill='black'/%3E%3Ccircle cx='50' cy='50' r='5' fill='none' stroke='white' stroke-width='1'/%3E%3C/svg%3E";
+const ALVO_CIRCULAR: string = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23e0e0e0'/%3E%3Ccircle cx='50' cy='50' r='45' fill='white' stroke='black' stroke-width='1'/%3E%3Ccircle cx='50' cy='50' r='35' fill='white' stroke='black' stroke-width='1'/%3E%3Ccircle cx='50' cy='50' r='25' fill='white' stroke='black' stroke-width='1'/%3E%3Ccircle cx='50' cy='50' r='15' fill='black'/%3E%3Ccircle cx='50' cy='50' r='5' fill='none' stroke='white' stroke-width='1'/%3E%3C/svg%3E";
+const ALVO_HUMANOIDE: string = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%232c3e50'/%3E%3Cpath d='M 40 5 C 40 2, 60 2, 60 5 L 60 18 C 75 18, 85 25, 85 40 L 80 100 L 20 100 L 15 40 C 15 25, 25 18, 40 18 Z' fill='%23ecf0f1'/%3E%3Cpath d='M 20 80 Q 50 90 80 80' fill='none' stroke='%23bdc3c7' stroke-width='0.5'/%3E%3Cpath d='M 15 60 Q 50 75 85 60' fill='none' stroke='%23bdc3c7' stroke-width='0.5'/%3E%3Cpath d='M 25 35 Q 50 50 75 35' fill='none' stroke='%23bdc3c7' stroke-width='0.5'/%3E%3Ccircle cx='50' cy='45' r='8' fill='none' stroke='%23bdc3c7' stroke-width='0.5'/%3E%3Ccircle cx='50' cy='12' r='3' fill='none' stroke='%23bdc3c7' stroke-width='0.5'/%3E%3C/svg%3E";
 
 const CALIBRES_DISPONIVEIS: string[] = [".22 LR", ".380 ACP", "9mm", ".38 SPL", ".357 Mag", ".40 S&W", ".45 ACP", "12 Gauge", "5.56x45mm", ".308 Win"];
 
@@ -35,19 +36,12 @@ const loadData = (key: string, defaultData: any) => {
   try {
     const item = localStorage.getItem(key);
     return item ? JSON.parse(item) : defaultData;
-  } catch (error) {
-    return defaultData;
-  }
+  } catch (error) { return defaultData; }
 };
 
 const saveData = (key: string, data: any) => {
-  try {
-    localStorage.setItem(key, JSON.stringify(data));
-  } catch (error: any) {
-    if (error.name === 'QuotaExceededError' || error.message.includes('QuotaExceeded')) {
-      alert("⚠️ A memória local do seu navegador está cheia!");
-    }
-  }
+  try { localStorage.setItem(key, JSON.stringify(data)); } 
+  catch (error: any) { if (error.name === 'QuotaExceededError') alert("⚠️ A memória local está cheia!"); }
 };
 
 const comprimirImagem = (file: File, callback: (base64: string) => void) => {
@@ -61,7 +55,7 @@ const comprimirImagem = (file: File, callback: (base64: string) => void) => {
       const canvas = document.createElement('canvas');
       const MAX_WIDTH = 600; 
       let scaleSize = 1;
-      if (img.width > MAX_WIDTH) { scaleSize = MAX_WIDTH / img.width; }
+      if (img.width > MAX_WIDTH) scaleSize = MAX_WIDTH / img.width;
       canvas.width = img.width * scaleSize;
       canvas.height = img.height * scaleSize;
       const ctx = canvas.getContext('2d');
@@ -76,221 +70,491 @@ const comprimirImagem = (file: File, callback: (base64: string) => void) => {
 interface Marcacao { x: number; y: number; }
 
 const avaliarMetricasTiro = (marcacoes: Marcacao[]) => {
-  if (marcacoes.length === 0) return { precisao: "0", dispersao: 0, diagnostico: "Nenhum tiro no alvo." };
-  const xMedio = marcacoes.reduce((acc: number, val: Marcacao) => acc + val.x, 0) / marcacoes.length;
-  const yMedio = marcacoes.reduce((acc: number, val: Marcacao) => acc + val.y, 0) / marcacoes.length;
-  const dispersao = marcacoes.reduce((acc: number, val: Marcacao) => acc + Math.sqrt(Math.pow(val.x - xMedio, 2) + Math.pow(val.y - yMedio, 2)), 0) / marcacoes.length;
+  if (marcacoes.length === 0) return { precisao: "0", dispersao: 0, diagnosticos: ["Nenhum tiro no alvo."] };
+  const xMedio = marcacoes.reduce((acc, val) => acc + val.x, 0) / marcacoes.length;
+  const yMedio = marcacoes.reduce((acc, val) => acc + val.y, 0) / marcacoes.length;
+  const dispersao = marcacoes.reduce((acc, val) => acc + Math.sqrt(Math.pow(val.x - xMedio, 2) + Math.pow(val.y - yMedio, 2)), 0) / marcacoes.length;
+  
   let pontuacaoTotal = 0;
-  marcacoes.forEach((m: Marcacao) => {
+  marcacoes.forEach((m) => {
     const distCentro = Math.sqrt(Math.pow(m.x - 0.5, 2) + Math.pow(m.y - 0.5, 2));
     pontuacaoTotal += Math.max(0, 100 - (distCentro / 0.5 * 100)); 
   });
   const precisaoScore = (pontuacaoTotal / marcacoes.length).toFixed(1);
-  let diagnostico = "";
-  if (marcacoes.length < 3 && dispersao > 0.10) diagnostico = "⚠️ Poucos tiros e distantes entre si. Não forma um agrupamento consistente.";
-  else if (dispersao > 0.11) diagnostico = "⚠️ Dispersão Irregular. Tiros espalhados. Foque na empunhadura, visada igual e controle da respiração.";
-  else {
-    const distanciaCentroReal = Math.sqrt(Math.pow(xMedio - 0.5, 2) + Math.pow(yMedio - 0.5, 2));
-    if (distanciaCentroReal <= 0.12) diagnostico = "✅ Excelente agrupamento! Fundamentos corretos.";
-    else if (xMedio < 0.45 && yMedio > 0.55) diagnostico = "🚨 Gatilhada (Jerking) ou Over-gripping da mão forte. Puxe progressivamente.";
-    else if (xMedio > 0.55 && yMedio > 0.55) diagnostico = "🚨 Quebrando o pulso ou pouca pressão na mão de apoio.";
-    else if (xMedio > 0.55 && yMedio < 0.45) diagnostico = "🚨 Heeling (Antecipação). Empurrando a base da arma antes do tiro.";
-    else if (xMedio < 0.45 && yMedio < 0.45) diagnostico = "🚨 Antecipação do recuo (Flinching). Abaixando a arma no disparo.";
-    else if (Math.abs(xMedio - 0.5) < 0.15 && yMedio > 0.65) diagnostico = "🚨 Foco no alvo, não na massa de mira (Tiros baixos).";
-    else if (xMedio < 0.35 && Math.abs(yMedio - 0.5) < 0.15) diagnostico = "🚨 Dedo pouco inserido no gatilho. Puxando arma para a esquerda.";
-    else if (xMedio > 0.65 && Math.abs(yMedio - 0.5) < 0.15) diagnostico = "🚨 Dedo muito inserido no gatilho. Puxando arma para a direita.";
-    else diagnostico = "⚠️ Agrupamento apertado, mas fora do centro. Verifique o ajuste da sua mira.";
+  
+  let diagnosticos: string[] = [];
+  
+  if (marcacoes.length < 3 && dispersao > 0.10) {
+    diagnosticos.push("⚠️ Poucos tiros para agrupar de forma consistente.");
+  } else {
+    if (dispersao > 0.15) diagnosticos.push("⚠️ Dispersão Alta: Foque na empunhadura firme e controle de respiração.");
+    else if (dispersao > 0.10) diagnosticos.push("⚠️ Dispersão Média: Atenção à puxada progressiva do gatilho.");
+
+    const distCentroReal = Math.sqrt(Math.pow(xMedio - 0.5, 2) + Math.pow(yMedio - 0.5, 2));
+
+    if (xMedio < 0.45 && yMedio > 0.55) diagnosticos.push("🚨 Gatilhada (Jerking): Tiros baixo-esquerda. Puxe o gatilho suavemente.");
+    else if (xMedio > 0.55 && yMedio > 0.55) diagnosticos.push("🚨 Quebra de pulso: Tiros baixo-direita. Ajuste a pressão da mão de apoio.");
+    else if (xMedio > 0.55 && yMedio < 0.45) diagnosticos.push("🚨 Antecipação (Heeling): Empurrando a arma (alto-direita).");
+    else if (xMedio < 0.45 && yMedio < 0.45) diagnosticos.push("🚨 Flinching: Abaixando a arma no disparo (alto-esquerda).");
+
+    if (distCentroReal <= 0.10 && dispersao <= 0.10) diagnosticos.push("✅ Excelente precisão! Fundamentos aplicados com perfeição.");
+    else if (distCentroReal > 0.10 && dispersao <= 0.10) diagnosticos.push("⚠️ Bom agrupamento, mas deslocado. Verifique o alinhamento da mira.");
   }
-  return { precisao: precisaoScore, dispersao: dispersao, diagnostico };
+
+  if (diagnosticos.length === 0) diagnosticos.push("✅ Agrupamento consistente e aceitável.");
+
+  return { precisao: precisaoScore, dispersao: dispersao, diagnosticos };
 };
 
 interface RenderizarAlvoProps {
   imagem: string;
   marcacoes: Marcacao[];
   onTargetClick?: (e: React.MouseEvent<HTMLImageElement>) => void;
+  onImgLoad?: (e: React.SyntheticEvent<HTMLImageElement>) => void;
+  imgRef?: React.RefObject<HTMLImageElement>;
 }
 
-const RenderizarAlvo: React.FC<RenderizarAlvoProps> = ({ imagem, marcacoes, onTargetClick }) => (
+const RenderizarAlvo: React.FC<RenderizarAlvoProps> = ({ imagem, marcacoes, onTargetClick, onImgLoad, imgRef }) => (
   <div style={{ position: 'relative', width: '100%', border: '1px solid #ddd', borderRadius: '4px', overflow: 'hidden' }}>
-    <img src={imagem} alt="Alvo" onClick={onTargetClick} style={{ width: '100%', display: 'block', backgroundColor: '#fff', cursor: onTargetClick ? 'crosshair' : 'default' }} />
+    <img ref={imgRef} src={imagem} alt="Alvo" onClick={onTargetClick} onLoad={onImgLoad} style={{ width: '100%', display: 'block', backgroundColor: '#fff', cursor: onTargetClick ? 'crosshair' : 'default' }} />
     {marcacoes.map((m: Marcacao, i: number) => (
-      <div key={i} style={{ position: 'absolute', left: `${m.x * 100}%`, top: `${m.y * 100}%`, width: '12px', height: '12px', backgroundColor: 'rgba(231,76,60,0.9)', border: '2px solid white', borderRadius: '50%', transform: 'translate(-50%, -50%)', pointerEvents: 'none' }} />
+      <div key={i} style={{ 
+        position: 'absolute', left: `${m.x * 100}%`, top: `${m.y * 100}%`, 
+        width: '6px', height: '6px', backgroundColor: '#ff0000', 
+        boxShadow: '0px 0px 3px rgba(0,0,0,0.8)', borderRadius: '50%', 
+        transform: 'translate(-50%, -50%)', pointerEvents: 'none' 
+      }} />
     ))}
   </div>
 );
 
-// TIPAGEM CORRETA PARA O COMPONENTE RECEBER O LOGOUT
-interface LogbookAppProps {
-  usuarioLogout?: () => void;
-}
+interface LogbookAppProps { usuarioLogout?: () => void; }
 
 export default function LogbookApp({ usuarioLogout }: LogbookAppProps) {
   const [telaAtual, setTelaAtual] = useState<string>('arsenal');
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => loadData('logbook_darkmode', false));
-  const [perfil, setPerfil] = useState(() => loadData('logbook_perfil', { nome: 'Fernando Evangelista', cr: '', validadeCr: '' }));
-  const [armas, setArmas] = useState(() => loadData('logbook_armas', [{ id: 1, marca: 'Taurus', modelo: 'THc', calibre: '9mm', foto: null, dataCompra: '', orgao: 'Sigma', craf: '', validadeCraf: '', gt: '', validadeGt: '', dataUltimaLimpeza: '', historicoManutencao: [] }]));
+  const [perfil, setPerfil] = useState(() => loadData('logbook_perfil', { nome: 'Atirador', cr: '', validadeCr: '', clubeAfiliado: '' }));
+  const [armas, setArmas] = useState(() => loadData('logbook_armas', []));
+  
+  const [armasClube, setArmasClube] = useState<any[]>(() => {
+    const saved = loadData('logbook_armas_clube', []);
+    return saved.map((item: any) => typeof item === 'string' ? { id: Date.now() + Math.random(), marca: item, modelo: '', calibre: '9mm' } : item);
+  });
+  
   const [historicoSessoes, setHistoricoSessoes] = useState(() => loadData('logbook_sessoes', []));
   const [relatoriosHabSalvos, setRelatoriosHabSalvos] = useState(() => loadData('logbook_hab', []));
 
   useEffect(() => { saveData('logbook_darkmode', isDarkMode); }, [isDarkMode]);
   useEffect(() => { saveData('logbook_perfil', perfil); }, [perfil]);
   useEffect(() => { saveData('logbook_armas', armas); }, [armas]);
+  useEffect(() => { saveData('logbook_armas_clube', armasClube); }, [armasClube]);
   useEffect(() => { saveData('logbook_sessoes', historicoSessoes); }, [historicoSessoes]);
   useEffect(() => { saveData('logbook_hab', relatoriosHabSalvos); }, [relatoriosHabSalvos]);
 
   const theme = {
-    bg: isDarkMode ? '#121212' : '#f4f4f9',
-    cardBg: isDarkMode ? '#1e1e1e' : '#ffffff',
-    textMain: isDarkMode ? '#ecf0f1' : '#2c3e50',
-    textSec: isDarkMode ? '#bdc3c7' : '#555',
-    inputBg: isDarkMode ? '#2c3e50' : '#ffffff',
-    inputText: isDarkMode ? '#ecf0f1' : '#000000',
-    borderColor: isDarkMode ? '#34495e' : '#cccccc',
-    navBg: isDarkMode ? '#1e1e1e' : '#ffffff',
-    cardRelatorioBg: isDarkMode ? '#2c3e50' : '#f8f9fa',
-    caixaDiagBg: isDarkMode ? '#34495e' : '#e8f4f8',
-    itemBorder: isDarkMode ? '#333' : '#eee',
-    caixaDiagText: isDarkMode ? '#ecf0f1' : '#2c3e50' 
+    bg: isDarkMode ? '#121212' : '#f4f4f9', cardBg: isDarkMode ? '#1e1e1e' : '#ffffff',
+    textMain: isDarkMode ? '#ecf0f1' : '#2c3e50', textSec: isDarkMode ? '#bdc3c7' : '#555',
+    inputBg: isDarkMode ? '#2c3e50' : '#ffffff', inputText: isDarkMode ? '#ecf0f1' : '#000000',
+    borderColor: isDarkMode ? '#34495e' : '#cccccc', navBg: isDarkMode ? '#1e1e1e' : '#ffffff',
+    cardRelatorioBg: isDarkMode ? '#2c3e50' : '#f8f9fa', caixaDiagBg: isDarkMode ? '#34495e' : '#e8f4f8',
+    itemBorder: isDarkMode ? '#333' : '#eee', caixaDiagText: isDarkMode ? '#ecf0f1' : '#2c3e50' 
   };
   
-  const [editandoPerfil, setEditandoPerfil] = useState<boolean>(false);
-  const [filtroHabInicio, setFiltroHabInicio] = useState<string>('');
-  const [filtroHabFim, setFiltroHabFim] = useState<string>('');
-  const [novaArma, setNovaArma] = useState<any>({ marca: '', modelo: '', calibre: '9mm', foto: null, dataCompra: '', orgao: 'Sigma', craf: '', validadeCraf: '', gt: '', validadeGt: '', dataUltimaLimpeza: '', historicoManutencao: [] });
+  // States do Arsenal
+  const [abaAcervo, setAbaAcervo] = useState<'pessoal' | 'clube'>('pessoal');
+  const [novaArma, setNovaArma] = useState<any>({ marca: '', modelo: '', calibre: '', orgao: 'Sigma', craf: '', validadeCraf: '', gt: '', validadeGt: '', historicoManutencao: [] });
   const [armaEmEdicao, setArmaEmEdicao] = useState<number | null>(null);
-  const [armaExpandida, setArmaExpandida] = useState<number | null>(null); 
+  const [armaExpandida, setArmaExpandida] = useState<number | null>(null);
   const [mostrarCamposAvancados, setMostrarCamposAvancados] = useState<boolean>(false);
   const [dataNovaManutencao, setDataNovaManutencao] = useState<string>(obterDataHoje());
   const [descNovaManutencao, setDescNovaManutencao] = useState<string>('');
+  
+  // States do CAC
+  const [editandoPerfil, setEditandoPerfil] = useState<boolean>(false);
+  const [filtroHabInicio, setFiltroHabInicio] = useState<string>('');
+  const [filtroHabFim, setFiltroHabFim] = useState<string>('');
+  
+  // States de Treino
   const [sessaoEmEdicaoId, setSessaoEmEdicaoId] = useState<number | null>(null);
+  const [tipoArmaTreino, setTipoArmaTreino] = useState<'acervo' | 'clube'>('acervo');
+  const [armaSelecionada, setArmaSelecionada] = useState<string>('');
+  
+  const [mostraNovaArmaClube, setMostraNovaArmaClube] = useState<boolean>(false);
+  const [novaArmaClubeMarca, setNovaArmaClubeMarca] = useState<string>('');
+  const [novaArmaClubeCalibre, setNovaArmaClubeCalibre] = useState<string>('');
+  
   const [dataTreino, setDataTreino] = useState<string>(obterDataHoje());
   const [horaTreino, setHoraTreino] = useState<string>(obterHoraAtual());
-  const [armaSelecionada, setArmaSelecionada] = useState<string>('');
   const [qtdTiros, setQtdTiros] = useState<string>('');
+  const [distancia, setDistancia] = useState<string>('10'); 
   const [tipoMunicao, setTipoMunicao] = useState<string>('Original');
   const [ehHabitualidade, setEhHabitualidade] = useState<boolean>(true);
-  const [imagemAlvo, setImagemAlvo] = useState<string>(ALVO_PADRAO);
+  
+  const [tipoAlvoPadrao, setTipoAlvoPadrao] = useState<'circular' | 'humanoide'>('circular');
+  const [imagemAlvo, setImagemAlvo] = useState<string>(ALVO_CIRCULAR);
   const [marcacoes, setMarcacoes] = useState<Marcacao[]>([]);
-  const [sessaoExpandida, setSessaoExpandida] = useState<number | null>(null);
-  const [filtroArma, setFiltroArma] = useState<string>('');
-  const [filtroDataInicio, setFiltroDataInicio] = useState<string>('');
-  const [filtroDataFim, setFiltroDataFim] = useState<string>('');
+  const [isAutoScanning, setIsAutoScanning] = useState<boolean>(false);
+  
+  // States de Comparação & Filtros
   const [modoComparacao, setModoComparacao] = useState<boolean>(false);
   const [sessoesParaComparar, setSessoesParaComparar] = useState<any[]>([]);
-
-  const lidarComFotoArma = (e: React.ChangeEvent<HTMLInputElement>) => { 
-    const file = e.target.files?.[0]; 
-    if(file) { comprimirImagem(file, (imagemBase64: string) => { setNovaArma({...novaArma, foto: imagemBase64}); }); }
-  };
-
-  const salvarArma = (e: React.FormEvent) => { 
-    e.preventDefault(); 
-    if (!novaArma.marca || !novaArma.modelo) return;
-    if (armaEmEdicao) {
-      setArmas(armas.map((a: any) => a.id === armaEmEdicao ? { ...novaArma, id: armaEmEdicao } : a));
-      setArmaEmEdicao(null);
-    } else {
-      setArmas([...armas, { ...novaArma, id: Date.now() }]); 
-    }
-    setNovaArma({ marca: '', modelo: '', calibre: '9mm', foto: null, dataCompra: '', orgao: 'Sigma', craf: '', validadeCraf: '', gt: '', validadeGt: '', dataUltimaLimpeza: '', historicoManutencao: [] });
-    setMostrarCamposAvancados(false);
-  };
+  const [sessaoExpandida, setSessaoExpandida] = useState<number | null>(null);
   
-  const editarArma = (arma: any) => { setNovaArma(arma); setArmaEmEdicao(arma.id); setMostrarCamposAvancados(true); };
-  const excluirArma = (id: number) => { if (window.confirm("Apagar arma do acervo?")) setArmas(armas.filter((a: any) => a.id !== id)); };
+  const [filtroArmaLogbook, setFiltroArmaLogbook] = useState<string>('');
+  const [filtroDataInicioLogbook, setFiltroDataInicioLogbook] = useState<string>('');
+  const [filtroDataFimLogbook, setFiltroDataFimLogbook] = useState<string>('');
+  const [ordemLogbook, setOrdemLogbook] = useState<string>('padrao'); 
 
-  const registrarLimpezaHoje = (idArma: number) => { setArmas(armas.map((a: any) => a.id === idArma ? { ...a, dataUltimaLimpeza: obterDataHoje() } : a)); };
-  const atualizarDataLimpeza = (idArma: number, novaData: string) => { setArmas(armas.map((a: any) => a.id === idArma ? { ...a, dataUltimaLimpeza: novaData } : a)); };
-  const adicionarManutencao = (idArma: number) => {
-    if(!descNovaManutencao) return;
-    setArmas(armas.map((a: any) => {
-      if (a.id === idArma) return { ...a, historicoManutencao: [{ id: Date.now(), data: dataNovaManutencao, descricao: descNovaManutencao }, ...a.historicoManutencao] };
-      return a;
-    }));
-    setDescNovaManutencao('');
+  const imgAlvoRef = useRef<HTMLImageElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (telaAtual === 'treino' && !sessaoEmEdicaoId) {
+      if (historicoSessoes.length > 0) {
+        const ultima = historicoSessoes[0];
+        setTipoArmaTreino(ultima.tipoArmaTreino || 'acervo');
+        setArmaSelecionada(ultima.armaId?.toString() || '');
+        setTipoMunicao(ultima.municao || 'Original');
+        setDistancia(ultima.distancia || '10');
+      } else if (armas.length === 1) {
+        setTipoArmaTreino('acervo');
+        setArmaSelecionada(armas[0].id.toString());
+      }
+    }
+  }, [telaAtual, sessaoEmEdicaoId, historicoSessoes, armas]);
+
+  useEffect(() => {
+    if (!sessaoEmEdicaoId && (imagemAlvo === ALVO_CIRCULAR || imagemAlvo === ALVO_HUMANOIDE)) {
+      setImagemAlvo(tipoAlvoPadrao === 'circular' ? ALVO_CIRCULAR : ALVO_HUMANOIDE);
+      setMarcacoes([]);
+      setQtdTiros('');
+    }
+  }, [tipoAlvoPadrao, sessaoEmEdicaoId]);
+
+  const adicionarNovaArmaClube = () => {
+    if (!novaArmaClubeMarca.trim() || !novaArmaClubeCalibre) return alert("Preencha a Marca e o Calibre.");
+    const nova = { id: Date.now(), marca: novaArmaClubeMarca, modelo: '', calibre: novaArmaClubeCalibre };
+    setArmasClube([...armasClube, nova]);
+    setArmaSelecionada(nova.id.toString());
+    setMostraNovaArmaClube(false);
+    setNovaArmaClubeMarca('');
+    setNovaArmaClubeCalibre('');
   };
-  const removerManutencao = (idArma: number, idManutencao: number) => { setArmas(armas.map((a: any) => a.id === idArma ? { ...a, historicoManutencao: a.historicoManutencao.filter((m: any) => m.id !== idManutencao) } : a)); };
 
   const lidarComUploadAlvo = (e: React.ChangeEvent<HTMLInputElement>) => { 
     const file = e.target.files?.[0]; 
-    if(file){ comprimirImagem(file, (imagemBase64: string) => { setImagemAlvo(imagemBase64); }); } 
-    else { setImagemAlvo(ALVO_PADRAO); }
-    setMarcacoes([]); 
+    if (file) { 
+      comprimirImagem(file, (base64) => {
+        setImagemAlvo(base64);
+        setIsAutoScanning(true); 
+      }); 
+    } else { 
+      removerFoto();
+    }
   };
 
+  const removerFoto = () => {
+    setImagemAlvo(tipoAlvoPadrao === 'circular' ? ALVO_CIRCULAR : ALVO_HUMANOIDE);
+    setMarcacoes([]);
+    setQtdTiros('');
+    setIsAutoScanning(false);
+    if (fileInputRef.current) fileInputRef.current.value = ''; 
+  };
+
+  const lidarCarregamentoImagem = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    if (isAutoScanning && imgAlvoRef.current) {
+      escanearFuros(imgAlvoRef.current);
+      setIsAutoScanning(false);
+    }
+  };
+
+  // SCANNER DEFINITIVO: Contraste Local + Margem Rígida
+  const escanearFuros = (img: HTMLImageElement) => {
+    if (imagemAlvo === ALVO_CIRCULAR || imagemAlvo === ALVO_HUMANOIDE) return;
+    
+    const MAX_DIM = 800;
+    let scale = 1;
+    if (img.naturalWidth > MAX_DIM || img.naturalHeight > MAX_DIM) {
+      scale = Math.min(MAX_DIM / img.naturalWidth, MAX_DIM / img.naturalHeight);
+    }
+    
+    const canvas = document.createElement('canvas');
+    const w = Math.floor(img.naturalWidth * scale);
+    const h = Math.floor(img.naturalHeight * scale);
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    ctx.drawImage(img, 0, 0, w, h);
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const data = imgData.data;
+    
+    const binaryMap = new Uint8Array(w * h);
+    const lumaMap = new Uint8Array(w * h);
+    
+    // Threshold seguro para pegar furos normais e bordas cinzas (135)
+    const THRESHOLD = 135; 
+    
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        const luma = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
+        lumaMap[y * w + x] = luma;
+        binaryMap[y * w + x] = luma < THRESHOLD ? 1 : 0;
+      }
+    }
+
+    const blobs: any[] = [];
+    const visited = new Uint8Array(w * h);
+
+    for (let y = 1; y < h - 1; y++) {
+      for (let x = 1; x < w - 1; x++) {
+        const idx = y * w + x;
+        if (binaryMap[idx] === 1 && visited[idx] === 0) {
+          const blob = { minX: x, maxX: x, minY: y, maxY: y, pixels: 0, sumX: 0, sumY: 0, sumLuma: 0, touchesEdge: false };
+          const stack = [idx];
+          visited[idx] = 1;
+
+          while (stack.length > 0) {
+            const curr = stack.pop()!;
+            const cy = Math.floor(curr / w);
+            const cx = curr % w;
+
+            blob.pixels++;
+            blob.sumX += cx;
+            blob.sumY += cy;
+            blob.sumLuma += lumaMap[curr];
+
+            if (cx <= 5 || cx >= w - 5 || cy <= 5 || cy >= h - 5) blob.touchesEdge = true;
+
+            const neighbors = [curr - w, curr + w, curr - 1, curr + 1];
+            for (const n of neighbors) {
+              if (n >= 0 && n < w * h && binaryMap[n] === 1 && visited[n] === 0) {
+                visited[n] = 1; stack.push(n);
+              }
+            }
+          }
+          blobs.push(blob);
+        }
+      }
+    }
+
+    const validHoles: {x: number, y: number}[] = [];
+    
+    // ZONA DE EXCLUSÃO (Mata os Logos nas extremidades e fundo preto nas bordas)
+    const marginX = w * 0.12; 
+    const marginY = h * 0.12; 
+
+    for (const blob of blobs) {
+      const width = blob.maxX - blob.minX + 1;
+      const height = blob.maxY - blob.minY + 1;
+      const aspect = Math.max(width, height) / Math.min(width, height);
+      const density = blob.pixels / (width * height);
+      const cx = Math.floor(blob.sumX / blob.pixels);
+      const cy = Math.floor(blob.sumY / blob.pixels);
+
+      if (cx < marginX || cx > w - marginX || cy < marginY || cy > h - marginY) continue;
+
+      // > 400 pixels ignora o mosca central que é muito maior.
+      if (!blob.touchesEdge && blob.pixels >= 5 && blob.pixels <= 400 && aspect <= 3.0 && density >= 0.25) {
+          
+          const margin = 15;
+          let bgLumaSum = 0;
+          let bgCount = 0;
+          let darkNeighbors = 0;
+
+          // Avalia uma caixa um pouco maior que a mancha
+          for(let py = cy - margin; py <= cy + margin; py += 3) {
+              for(let px = cx - margin; px <= cx + margin; px += 3) {
+                  // Ignora os pixels que fazem parte do próprio buraco
+                  if (Math.abs(px - cx) < width/2 && Math.abs(py - cy) < height/2) continue;
+
+                  if (px >= 0 && px < w && py >= 0 && py < h) {
+                      const luma = lumaMap[py * w + px];
+                      bgLumaSum += luma;
+                      bgCount++;
+                      // < 90 indica tinta preta intensa (como a silhueta ou logotipos)
+                      if (luma < 90) darkNeighbors++;
+                  }
+              }
+          }
+
+          // REGRA 1: Não pode estar cercado de muito preto (Mata manchas no fundo preto e logos centrais)
+          if (bgCount > 0 && (darkNeighbors / bgCount) > 0.40) continue;
+
+          // REGRA 2: Contraste Local (Mata obréias/patches cinzas coladas no papel)
+          const avgBgLuma = bgCount > 0 ? bgLumaSum / bgCount : 255;
+          const coreLuma = blob.sumLuma / blob.pixels;
+          
+          // O fundo (papel) deve ser pelo menos 10 tons mais claro que o buraco. 
+          // Patches têm a mesma cor, buracos são escuros.
+          if (avgBgLuma - coreLuma > 10) {
+              validHoles.push({ x: cx / w, y: cy / h });
+          }
+      }
+    }
+
+    setMarcacoes(validHoles);
+    setQtdTiros(validHoles.length.toString()); 
+  };
+
+  // CLIQUE AJUSTADO PARA DISTÂNCIA EM PIXELS REAIS (Fim dos apagamentos acidentais)
   const marcarTiro = (e: React.MouseEvent<HTMLImageElement>) => { 
-    if (!qtdTiros || marcacoes.length >= parseInt(qtdTiros)) return alert(`Limite atingido.`);
     const rect = e.currentTarget.getBoundingClientRect(); 
-    setMarcacoes([...marcacoes, { x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height }]); 
+    const xPx = e.clientX - rect.left;
+    const yPx = e.clientY - rect.top;
+    
+    const xRatio = xPx / rect.width;
+    const yRatio = yPx / rect.height;
+
+    const RAIO_PX = 15; // Apenas 15 pixels de área de clique para apagar
+
+    const indexParaRemover = marcacoes.findIndex(m => {
+      const mxPx = m.x * rect.width;
+      const myPx = m.y * rect.height;
+      return Math.hypot(mxPx - xPx, myPx - yPx) < RAIO_PX;
+    });
+
+    if (indexParaRemover !== -1) {
+      const novasMarcacoes = [...marcacoes];
+      novasMarcacoes.splice(indexParaRemover, 1);
+      setMarcacoes(novasMarcacoes);
+      setQtdTiros(novasMarcacoes.length.toString());
+    } else {
+      const novasMarcacoes = [...marcacoes, { x: xRatio, y: yRatio }];
+      setMarcacoes(novasMarcacoes);
+      setQtdTiros(novasMarcacoes.length.toString());
+    }
+  };
+
+  const limparFormularioTreino = () => {
+    setSessaoEmEdicaoId(null);
+    setQtdTiros(''); setMarcacoes([]); 
+    setImagemAlvo(tipoAlvoPadrao === 'circular' ? ALVO_CIRCULAR : ALVO_HUMANOIDE); 
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const finalizarSessao = () => {
-    if (!armaSelecionada || !qtdTiros) return alert("Selecione arma e quantidade de tiros.");
-    const armaUsada = armas.find((a: any) => a.id.toString() === armaSelecionada);
-    if (!armaUsada) return;
+    if (!armaSelecionada) return alert("Selecione uma arma.");
+    if (!qtdTiros) return alert("Marque os disparos.");
+
+    let nomeArmaUsada = '';
+    let calibreUsado = '';
+
+    const arrayBusca = tipoArmaTreino === 'acervo' ? armas : armasClube;
+    const a = arrayBusca.find((a: any) => a.id.toString() === armaSelecionada);
+    
+    if (a) {
+      nomeArmaUsada = `${a.marca} ${a.modelo || ''}`.trim();
+      calibreUsado = a.calibre;
+    }
 
     const metricas = avaliarMetricasTiro(marcacoes);
     const taxaPapel = qtdTiros ? parseFloat(((marcacoes.length / parseInt(qtdTiros)) * 100).toFixed(0)) : 0;
 
     const novaSessao = {
       id: sessaoEmEdicaoId ? sessaoEmEdicaoId : Date.now(), 
-      data: dataTreino, hora: horaTreino, armaId: armaUsada.id, 
-      armaNome: `${armaUsada.marca} ${armaUsada.modelo}`, calibre: armaUsada.calibre,
-      tirosDeclarados: qtdTiros, tirosNoAlvo: marcacoes.length, municao: tipoMunicao, habitualidade: ehHabitualidade,
+      data: dataTreino, hora: horaTreino, 
+      tipoArmaTreino: tipoArmaTreino,
+      armaId: armaSelecionada, 
+      armaNome: nomeArmaUsada, calibre: calibreUsado,
+      tirosDeclarados: qtdTiros, tirosNoAlvo: marcacoes.length, distancia: distancia, municao: tipoMunicao, habitualidade: ehHabitualidade,
       taxaPapel: taxaPapel, precisaoScore: metricas.precisao, dispersaoIndex: metricas.dispersao, 
-      diagnostico: metricas.diagnostico, imagemOriginal: imagemAlvo, marcacoesSalvas: marcacoes
+      diagnosticos: metricas.diagnosticos, imagemOriginal: imagemAlvo, marcacoesSalvas: marcacoes
     };
 
     if (sessaoEmEdicaoId) setHistoricoSessoes(historicoSessoes.map((s: any) => s.id === sessaoEmEdicaoId ? novaSessao : s));
     else setHistoricoSessoes([novaSessao, ...historicoSessoes]);
-
+    
     limparFormularioTreino();
     setTelaAtual('relatorios');
   };
 
-  const limparFormularioTreino = () => {
-    setDataTreino(obterDataHoje()); setHoraTreino(obterHoraAtual()); setArmaSelecionada('');
-    setQtdTiros(''); setTipoMunicao('Original'); setEhHabitualidade(true);
-    setMarcacoes([]); setImagemAlvo(ALVO_PADRAO); setSessaoEmEdicaoId(null);
-  };
-
   const editarSessao = (sessao: any) => {
-    setDataTreino(sessao.data); setHoraTreino(sessao.hora || obterHoraAtual());
-    setArmaSelecionada(sessao.armaId.toString()); setQtdTiros(sessao.tirosDeclarados.toString());
-    setTipoMunicao(sessao.municao || 'Original'); setEhHabitualidade(sessao.habitualidade);
-    setImagemAlvo(sessao.imagemOriginal); setMarcacoes(sessao.marcacoesSalvas || []);
-    setSessaoEmEdicaoId(sessao.id); setSessaoExpandida(null); setTelaAtual('treino'); 
+    setSessaoEmEdicaoId(sessao.id);
+    setDataTreino(sessao.data);
+    setHoraTreino(sessao.hora);
+    setTipoArmaTreino(sessao.tipoArmaTreino || 'acervo');
+    setArmaSelecionada(sessao.armaId?.toString() || '');
+    setQtdTiros(sessao.tirosDeclarados);
+    setDistancia(sessao.distancia || '10');
+    setTipoMunicao(sessao.municao || 'Original');
+    setEhHabitualidade(sessao.habitualidade !== false);
+    setMarcacoes(sessao.marcacoesSalvas || []);
+    setImagemAlvo(sessao.imagemOriginal || ALVO_CIRCULAR);
+    setTelaAtual('treino');
   };
 
-  const excluirSessao = (id: number) => {
-    if (window.confirm("Apagar treino?")) setHistoricoSessoes(historicoSessoes.filter((s: any) => s.id !== id));
+  // Funções do Acervo (Arsenal) Pessoal e Clube
+  const salvarArma = (e: React.FormEvent) => { 
+    e.preventDefault(); 
+    if (!novaArma.marca || !novaArma.calibre) return alert("Preencha Marca e Calibre.");
+    
+    const list = abaAcervo === 'pessoal' ? armas : armasClube;
+    const setList = abaAcervo === 'pessoal' ? setArmas : setArmasClube;
+
+    if (armaEmEdicao) setList(list.map((a: any) => a.id === armaEmEdicao ? { ...novaArma, id: armaEmEdicao, historicoManutencao: a.historicoManutencao } : a));
+    else setList([...list, { ...novaArma, id: Date.now(), historicoManutencao: [] }]); 
+    
+    setNovaArma({ marca: '', modelo: '', calibre: '', orgao: 'Sigma', craf: '', validadeCraf: '', gt: '', validadeGt: '', historicoManutencao: [] });
+    setMostrarCamposAvancados(false);
+    setArmaEmEdicao(null);
   };
-
-  const sessoesFiltradas = historicoSessoes.filter((sessao: any) => {
-    if (filtroArma && sessao.armaId.toString() !== filtroArma) return false;
-    if (filtroDataInicio && sessao.data < filtroDataInicio) return false;
-    if (filtroDataFim && sessao.data > filtroDataFim) return false;
-    return true;
-  });
-
-  const toggleComparacao = (sessao: any) => {
-    if (sessoesParaComparar.find((s: any) => s.id === sessao.id)) setSessoesParaComparar(sessoesParaComparar.filter((s: any) => s.id !== sessao.id));
-    else {
-      if (sessoesParaComparar.length < 2) setSessoesParaComparar([...sessoesParaComparar, sessao]);
-      else alert("Selecione apenas 2 sessões.");
+  
+  const editarArma = (arma: any) => { setNovaArma(arma); setArmaEmEdicao(arma.id); setMostrarCamposAvancados(true); };
+  const excluirArma = (id: number) => { 
+    if (window.confirm("Apagar arma? O histórico de treinos será mantido.")) {
+      abaAcervo === 'pessoal' ? setArmas(armas.filter((a: any) => a.id !== id)) : setArmasClube(armasClube.filter((a: any) => a.id !== id));
     }
   };
 
-  const calcularEvolucao = () => {
-    if (sessoesParaComparar.length !== 2) return null;
-    const ordenadas = [...sessoesParaComparar].sort((a: any, b: any) => new Date(`${a.data}T${a.hora || '00:00'}`).getTime() - new Date(`${b.data}T${b.hora || '00:00'}`).getTime());
-    const sessaoAntiga = ordenadas[0]; const sessaoNova = ordenadas[1];
-    const diffPrecisao = (Number(sessaoNova.precisaoScore) - Number(sessaoAntiga.precisaoScore)).toFixed(1);
-    const diffDispersao = (sessaoAntiga.dispersaoIndex - sessaoNova.dispersaoIndex);
-    
-    if (Number(diffPrecisao) > 3 || diffDispersao > 0.05) return (<div style={{...styles.caixaEvolucao, backgroundColor: '#d4edda', color: '#155724', borderColor: '#c3e6cb'}}>📈 <strong>Evolução Real!</strong> Score subiu em {diffPrecisao}%.</div>);
-    if (Number(diffPrecisao) < -3 || diffDispersao < -0.05) return (<div style={{...styles.caixaEvolucao, backgroundColor: '#f8d7da', color: '#721c24', borderColor: '#f5c6cb'}}>📉 <strong>Regressão detectada:</strong> Score caiu {Math.abs(Number(diffPrecisao))}%.</div>);
-    return <div style={{...styles.caixaEvolucao, backgroundColor: '#e2e3e5', color: '#383d41', borderColor: '#d6d8db'}}>⚖️ <strong>Desempenho Mantido</strong></div>;
+  const registrarLimpeza = (id: number) => {
+    setArmas(armas.map((a: any) => a.id === id ? { ...a, dataUltimaLimpeza: dataNovaManutencao } : a));
+    alert("Limpeza atualizada com sucesso!");
+  };
+
+  const adicionarManutencao = (id: number) => {
+    if (!descNovaManutencao) return alert("Digite a descrição da manutenção.");
+    setArmas(armas.map((a: any) => {
+      if (a.id === id) {
+        const hist = a.historicoManutencao || [];
+        return { ...a, historicoManutencao: [{ data: dataNovaManutencao, descricao: descNovaManutencao }, ...hist] };
+      }
+      return a;
+    }));
+    setDescNovaManutencao('');
+  };
+
+  const excluirManutencao = (armaId: number, index: number) => {
+    if (window.confirm("Apagar registro de manutenção?")) {
+      setArmas(armas.map((a: any) => {
+        if (a.id === armaId) {
+          const novoHist = [...(a.historicoManutencao || [])];
+          novoHist.splice(index, 1);
+          return { ...a, historicoManutencao: novoHist };
+        }
+        return a;
+      }));
+    }
+  };
+
+  const calcularTirosArma = (armaId: number, isClube: boolean) => {
+    const sessoesArma = historicoSessoes.filter((s: any) => s.armaId?.toString() === armaId.toString() && s.tipoArmaTreino === (isClube ? 'clube' : 'acervo'));
+    const total = sessoesArma.reduce((acc: number, s: any) => acc + (parseInt(s.tirosDeclarados) || 0), 0);
+    const porMunicao = sessoesArma.reduce((acc: any, s: any) => {
+        const tipo = s.municao || 'Original';
+        acc[tipo] = (acc[tipo] || 0) + (parseInt(s.tirosDeclarados) || 0);
+        return acc;
+    }, {});
+    return { total, porMunicao };
+  };
+
+  // Funções do CAC
+  const salvarPeriodoHabitualidade = () => {
+    if (!filtroHabInicio || !filtroHabFim) return alert("Defina a Data Inicial e Final.");
+    setRelatoriosHabSalvos([{ id: Date.now(), inicio: filtroHabInicio, fim: filtroHabFim, criacao: obterDataHoje() }, ...relatoriosHabSalvos]);
+    alert("Período salvo com sucesso!");
   };
 
   const sessoesHabitualidade = historicoSessoes.filter((s: any) => {
@@ -300,15 +564,9 @@ export default function LogbookApp({ usuarioLogout }: LogbookAppProps) {
     return true;
   });
 
-  const salvarPeriodoHabitualidade = () => {
-    if (!filtroHabInicio || !filtroHabFim) return alert("Defina a Data Inicial e Final.");
-    setRelatoriosHabSalvos([{ id: Date.now(), inicio: filtroHabInicio, fim: filtroHabFim, criacao: obterDataHoje() }, ...relatoriosHabSalvos]);
-    alert("Período salvo com sucesso!");
-  };
-
   const exportarCSV = () => {
-    let csvContent = "\uFEFFData;Hora;Arma;Calibre;Munição;Tiros;Score Precisão\n";
-    sessoesHabitualidade.forEach((s: any) => { csvContent += `${formatarData(s.data)};${s.hora};${s.armaNome};${s.calibre};${s.municao};${s.tirosDeclarados};${s.precisaoScore}%\n`; });
+    let csvContent = "\uFEFFData;Hora;Arma;Calibre;Munição;Tiros;Distância;Score Precisão\n";
+    sessoesHabitualidade.forEach((s: any) => { csvContent += `${formatarData(s.data)};${s.hora};${s.armaNome};${s.calibre};${s.municao};${s.tirosDeclarados};${s.distancia || '10'}m;${s.precisaoScore}%\n`; });
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
@@ -316,37 +574,82 @@ export default function LogbookApp({ usuarioLogout }: LogbookAppProps) {
     link.click();
   };
 
+  // Funções do Logbook (Ordenação e Filtro)
+  let sessoesLogbookFiltradas = historicoSessoes.filter((s: any) => {
+    if (filtroArmaLogbook && s.armaId?.toString() !== filtroArmaLogbook) return false;
+    if (filtroDataInicioLogbook && s.data < filtroDataInicioLogbook) return false;
+    if (filtroDataFimLogbook && s.data > filtroDataFimLogbook) return false;
+    return true;
+  });
+
+  sessoesLogbookFiltradas.sort((a: any, b: any) => {
+    if (ordemLogbook === 'arma') return a.armaNome.localeCompare(b.armaNome);
+    if (ordemLogbook === 'calibre') return (a.calibre || '').localeCompare(b.calibre || '');
+    if (ordemLogbook === 'score') return parseFloat(b.precisaoScore) - parseFloat(a.precisaoScore);
+    const dataDiff = new Date(b.data).getTime() - new Date(a.data).getTime();
+    if (dataDiff !== 0) return dataDiff;
+    const armaDiff = a.armaNome.localeCompare(b.armaNome);
+    if (armaDiff !== 0) return armaDiff;
+    return parseFloat(b.precisaoScore) - parseFloat(a.precisaoScore);
+  });
+
+  const toggleComparacao = (sessao: any) => {
+    if (sessoesParaComparar.find(s => s.id === sessao.id)) setSessoesParaComparar(sessoesParaComparar.filter(s => s.id !== sessao.id));
+    else {
+      if (sessoesParaComparar.length >= 2) return alert("Selecione apenas 2 treinos para comparar.");
+      setSessoesParaComparar([...sessoesParaComparar, sessao]);
+    }
+  };
+
+  const renderAnaliseEvolucao = () => {
+    if (sessoesParaComparar.length !== 2) return null;
+    
+    const [s1, s2] = [...sessoesParaComparar].sort((a, b) => {
+        const d1 = new Date(`${a.data}T${a.hora}`).getTime();
+        const d2 = new Date(`${b.data}T${b.hora}`).getTime();
+        return d1 - d2;
+    });
+
+    const scoreDiff = parseFloat(s2.precisaoScore) - parseFloat(s1.precisaoScore);
+    const dispDiff = parseFloat(s2.dispersaoIndex) - parseFloat(s1.dispersaoIndex);
+
+    let evolucaoScore = '';
+    if (scoreDiff > 0) evolucaoScore = `📈 Melhorou ${scoreDiff.toFixed(1)}% na zona de pontuação.`;
+    else if (scoreDiff < 0) evolucaoScore = `📉 Caiu ${Math.abs(scoreDiff).toFixed(1)}% na pontuação.`;
+    else evolucaoScore = `➖ Pontuação manteve-se idêntica.`;
+
+    let evolucaoDisp = '';
+    if (dispDiff < -0.01) evolucaoDisp = `🎯 Agrupamento evoluiu (Tiros mais concentrados).`;
+    else if (dispDiff > 0.01) evolucaoDisp = `⚠️ Regressão no agrupamento (Tiros mais dispersos).`;
+    else evolucaoDisp = `🔄 Consistência de agrupamento inalterada.`;
+
+    return (
+      <div style={{backgroundColor: theme.caixaDiagBg, padding: '15px', borderRadius: '8px', border: `1px solid ${theme.borderColor}`, marginTop: '15px', color: theme.caixaDiagText}}>
+        <h4 style={{margin: '0 0 10px 0', textAlign: 'center', fontSize: '14px'}}>📊 Análise de Progressão</h4>
+        <p style={{margin: '5px 0', fontSize: '13px', textAlign: 'center'}}>De: <strong>{formatarData(s1.data)}</strong> ➡️ Para: <strong>{formatarData(s2.data)}</strong></p>
+        <div style={{display: 'flex', flexDirection: 'column', gap: '5px', marginTop: '10px'}}>
+          <span style={{fontSize: '13px'}}>{evolucaoScore}</span>
+          <span style={{fontSize: '13px'}}>{evolucaoDisp}</span>
+        </div>
+      </div>
+    );
+  };
+  
   const styles: { [key: string]: React.CSSProperties } = {
     container: { fontFamily: 'system-ui, sans-serif', padding: '16px', paddingBottom: '80px', maxWidth: '400px', margin: '0 auto', backgroundColor: theme.bg, color: theme.textMain, minHeight: '100vh', position: 'relative' },
-    header: { textAlign: 'center', color: theme.textMain, marginBottom: '20px' },
     card: { backgroundColor: theme.cardBg, padding: '16px', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', marginBottom: '20px', color: theme.textMain },
-    cardTitle: { marginTop: 0, color: theme.textMain, marginBottom: '15px', borderBottom: `2px solid ${theme.borderColor}`, paddingBottom: '8px' },
-    label: { display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: theme.textSec },
     input: { width: '100%', padding: '10px', marginBottom: '12px', borderRadius: '8px', border: `1px solid ${theme.borderColor}`, boxSizing: 'border-box', backgroundColor: theme.inputBg, color: theme.inputText, fontSize: '14px' },
     button: { width: '100%', padding: '12px', backgroundColor: '#2980b9', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '15px' },
     btnSecundario: { width: '100%', padding: '10px', backgroundColor: theme.caixaDiagBg, color: theme.textMain, border: `1px solid ${theme.borderColor}`, borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' },
-    list: { listStyleType: 'none', padding: 0, margin: 0 },
-    listItem: { padding: '12px 0', borderBottom: `1px solid ${theme.itemBorder}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-    badge: { backgroundColor: '#34495e', color: 'white', padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' },
     btnAcao: { background: 'none', border: 'none', cursor: 'pointer', margin: 0, padding: '5px' },
-    alvoContainer: { backgroundColor: theme.cardRelatorioBg, padding: '10px', borderRadius: '8px', border: `1px solid ${theme.borderColor}` },
-    contadorTiros: { fontSize: '14px', fontWeight: 'bold', color: theme.textMain },
-    instrucao: { fontSize: '12px', color: theme.textSec, textAlign: 'center', marginBottom: '10px' },
-    navBar: { position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '400px', display: 'flex', backgroundColor: theme.navBg, borderTop: `1px solid ${theme.borderColor}`, padding: '5px 0', boxShadow: '0 -2px 10px rgba(0,0,0,0.05)', zIndex: 10 },
-    navBtn: { flex: 1, backgroundColor: 'transparent', border: 'none', padding: '10px 2px', fontSize: '13px', color: '#7f8c8d', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' },
-    navBtnAtivo: { flex: 1, backgroundColor: 'transparent', border: 'none', padding: '10px 2px', fontSize: '13px', color: '#2980b9', fontWeight: 'bold', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' },
-    cardRelatorio: { backgroundColor: theme.cardRelatorioBg, borderRadius: '8px', padding: '12px', marginBottom: '15px', border: `1px solid ${theme.itemBorder}`, cursor: 'pointer' },
-    caixaDiagnostico: { backgroundColor: theme.caixaDiagBg, color: theme.caixaDiagText, borderLeft: '4px solid #3498db', padding: '10px', borderRadius: '4px', fontSize: '13px', marginTop: '10px' },
-    caixaEvolucao: { borderLeft: '4px solid', padding: '12px', borderRadius: '4px', fontSize: '14px', textAlign: 'center' }
+    navBar: { position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: '400px', display: 'flex', backgroundColor: theme.navBg, borderTop: `1px solid ${theme.borderColor}`, padding: '5px 0', zIndex: 10 },
+    tabBtn: { flex: 1, padding: '10px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', transition: '0.2s' }
   };
 
   return (
     <div style={styles.container} className="app-container">
       <style>
         {`
-          :root { color-scheme: ${isDarkMode ? 'dark' : 'light'}; }
-          body, html { background-color: ${theme.bg}; }
-
           @media print {
             @page { margin: 10mm; size: A4 portrait; }
             body, html { background-color: white !important; color: black !important; margin: 0 !important; padding: 0 !important; }
@@ -362,281 +665,389 @@ export default function LogbookApp({ usuarioLogout }: LogbookAppProps) {
       </style>
 
       <div className="no-print" style={{display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative', marginBottom: '20px'}}>
-        <h2 style={{...styles.header, marginBottom: 0}}>🎯 Logbook de Tiro</h2>
-        <button onClick={() => setIsDarkMode(!isDarkMode)} style={{position: 'absolute', right: 0, background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', padding: '5px'}}>
+        <h2 style={{textAlign: 'center', margin: 0}}>🎯 Logbook v2.0</h2>
+        <button onClick={() => setIsDarkMode(!isDarkMode)} style={{position: 'absolute', right: 0, background: 'none', border: 'none', fontSize: '22px'}}>
           {isDarkMode ? '☀️' : '🌙'}
         </button>
       </div>
 
+      {/* ABA DO ACERVO */}
       {telaAtual === 'arsenal' && (
         <div className="no-print">
+          <div style={{display: 'flex', borderRadius: '8px', overflow: 'hidden', border: `1px solid ${theme.borderColor}`, marginBottom: '15px'}}>
+            <button style={{...styles.tabBtn, backgroundColor: abaAcervo === 'pessoal' ? '#2980b9' : theme.cardBg, color: abaAcervo === 'pessoal' ? 'white' : theme.textMain}} onClick={() => {setAbaAcervo('pessoal'); setArmaEmEdicao(null);}}>Meu Acervo</button>
+            <button style={{...styles.tabBtn, backgroundColor: abaAcervo === 'clube' ? '#2980b9' : theme.cardBg, color: abaAcervo === 'clube' ? 'white' : theme.textMain}} onClick={() => {setAbaAcervo('clube'); setArmaEmEdicao(null);}}>Armas do Clube</button>
+          </div>
+
           <form onSubmit={salvarArma} style={styles.card}>
-            <h3 style={styles.cardTitle}>{armaEmEdicao ? 'Editar Arma' : 'Nova Arma'}</h3>
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `2px solid ${theme.borderColor}`, paddingBottom: '8px', marginBottom: '15px'}}>
+              <h3 style={{margin: 0}}>{armaEmEdicao ? 'Editar Arma' : (abaAcervo === 'pessoal' ? 'Nova Arma Pessoal' : 'Nova Arma do Clube')}</h3>
+              {armaEmEdicao && <button type="button" onClick={() => {setArmaEmEdicao(null); setMostrarCamposAvancados(false);}} style={{...styles.btnAcao, color: '#e74c3c', fontSize: '12px', fontWeight: 'bold'}}>✖ Cancelar</button>}
+            </div>
+
             <div style={{display: 'flex', gap: '10px'}}>
-              <div style={{flex: 2}}><input style={styles.input} placeholder="Marca" value={novaArma.marca} onChange={e => setNovaArma({...novaArma, marca: e.target.value})} /></div>
-              <div style={{flex: 2}}><input style={styles.input} placeholder="Modelo" value={novaArma.modelo} onChange={e => setNovaArma({...novaArma, modelo: e.target.value})} /></div>
+              <div style={{flex: 2}}><input style={styles.input} placeholder="Marca (Ex: Taurus)" value={novaArma.marca} onChange={e => setNovaArma({...novaArma, marca: e.target.value})} /></div>
+              <div style={{flex: 2}}><input style={styles.input} placeholder="Modelo (Opcional)" value={novaArma.modelo} onChange={e => setNovaArma({...novaArma, modelo: e.target.value})} /></div>
             </div>
             <select style={styles.input} value={novaArma.calibre} onChange={e => setNovaArma({...novaArma, calibre: e.target.value})}>
+              <option value="">Selecione o Calibre...</option>
               {CALIBRES_DISPONIVEIS.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
-            <button type="button" onClick={() => setMostrarCamposAvancados(!mostrarCamposAvancados)} style={styles.btnSecundario}>
-              {mostrarCamposAvancados ? 'Ocultar Documentação Legal' : '➕ Adicionar Dados de Registro'}
-            </button>
-            {mostrarCamposAvancados && (
-              <div style={{backgroundColor: theme.cardRelatorioBg, padding: '10px', borderRadius: '8px', marginTop: '10px', border: `1px solid ${theme.borderColor}`}}>
-                <label style={styles.label}>Foto do Equipamento:</label>
-                <input type="file" accept="image/*" onChange={lidarComFotoArma} style={{marginBottom: '10px', color: theme.textMain}} />
-                <div style={{display: 'flex', gap: '10px'}}>
-                  <div style={{flex: 1}}><label style={styles.label}>Órgão:</label><select style={styles.input} value={novaArma.orgao} onChange={e => setNovaArma({...novaArma, orgao: e.target.value})}><option value="Sigma">Sigma</option><option value="Sinarm">Sinarm</option></select></div>
-                  <div style={{flex: 1}}><label style={styles.label}>Data Compra:</label><input type="date" style={styles.input} value={novaArma.dataCompra} onChange={e => setNovaArma({...novaArma, dataCompra: e.target.value})} /></div>
-                </div>
-                <div style={{display: 'flex', gap: '10px'}}>
-                  <div style={{flex: 1}}><label style={styles.label}>Nº CRAF:</label><input style={styles.input} value={novaArma.craf} onChange={e => setNovaArma({...novaArma, craf: e.target.value})} /></div>
-                  <div style={{flex: 1}}><label style={styles.label}>Validade CRAF:</label><input type="date" style={styles.input} value={novaArma.validadeCraf} onChange={e => setNovaArma({...novaArma, validadeCraf: e.target.value})} /></div>
-                </div>
-                <div style={{display: 'flex', gap: '10px'}}>
-                  <div style={{flex: 1}}><label style={styles.label}>Nº Guia de Tráfego:</label><input style={styles.input} value={novaArma.gt} onChange={e => setNovaArma({...novaArma, gt: e.target.value})} /></div>
-                  <div style={{flex: 1}}><label style={styles.label}>Validade GT:</label><input type="date" style={styles.input} value={novaArma.validadeGt} onChange={e => setNovaArma({...novaArma, validadeGt: e.target.value})} /></div>
-                </div>
-              </div>
+
+            {abaAcervo === 'pessoal' && (
+              <>
+                <button type="button" onClick={() => setMostrarCamposAvancados(!mostrarCamposAvancados)} style={{...styles.btnAcao, color: '#2980b9', fontSize: '12px', fontWeight: 'bold', width: '100%', textAlign: 'center', marginBottom: '10px'}}>
+                  {mostrarCamposAvancados ? 'Ocultar Documentos ▲' : 'Inserir Documentos de Registro ▼'}
+                </button>
+
+                {mostrarCamposAvancados && (
+                  <div style={{backgroundColor: theme.cardRelatorioBg, padding: '10px', borderRadius: '8px', marginBottom: '15px'}}>
+                    <select style={styles.input} value={novaArma.orgao} onChange={e => setNovaArma({...novaArma, orgao: e.target.value})}>
+                      <option value="Sigma">SIGMA (Exército)</option>
+                      <option value="Sinarm">SINARM (Polícia Federal)</option>
+                    </select>
+                    <div style={{display: 'flex', gap: '10px'}}>
+                      <div style={{flex: 1}}><label style={{fontSize: '11px'}}>Nº CRAF</label><input style={styles.input} value={novaArma.craf} onChange={e => setNovaArma({...novaArma, craf: e.target.value})} /></div>
+                      <div style={{flex: 1}}><label style={{fontSize: '11px'}}>Validade CRAF</label><input type="date" style={styles.input} value={novaArma.validadeCraf} onChange={e => setNovaArma({...novaArma, validadeCraf: e.target.value})} /></div>
+                    </div>
+                    <div style={{display: 'flex', gap: '10px'}}>
+                      <div style={{flex: 1}}><label style={{fontSize: '11px'}}>Nº Guia de Tráfego</label><input style={styles.input} value={novaArma.gt} onChange={e => setNovaArma({...novaArma, gt: e.target.value})} /></div>
+                      <div style={{flex: 1}}><label style={{fontSize: '11px'}}>Validade GT</label><input type="date" style={styles.input} value={novaArma.validadeGt} onChange={e => setNovaArma({...novaArma, validadeGt: e.target.value})} /></div>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
-            <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
-              <button type="submit" style={{...styles.button, flex: 2}}>{armaEmEdicao ? 'Atualizar Arma' : 'Salvar no Acervo'}</button>
-              {armaEmEdicao && <button type="button" onClick={() => {setArmaEmEdicao(null); setMostrarCamposAvancados(false);}} style={{...styles.button, backgroundColor: '#95a5a6', flex: 1}}>Cancelar</button>}
-            </div>
+
+            <button type="submit" style={styles.button}>{armaEmEdicao ? 'Atualizar' : 'Salvar no Acervo'}</button>
           </form>
 
           <div style={styles.card}>
-            <h3 style={styles.cardTitle}>Meu Acervo</h3>
-            <ul style={styles.list}>
-              {armas.map((a: any) => {
-                const sessoesDaArma = historicoSessoes.filter((s: any) => s.armaId === a.id);
-                const disparosOriginal = sessoesDaArma.filter((s: any) => s.municao === 'Original').reduce((acc: number, s: any) => acc + parseInt(s.tirosDeclarados), 0);
-                const disparosRecarregada = sessoesDaArma.filter((s: any) => s.municao === 'Recarregada').reduce((acc: number, s: any) => acc + parseInt(s.tirosDeclarados), 0);
-                const disparosDryFire = sessoesDaArma.filter((s: any) => s.municao === 'Dry Fire').reduce((acc: number, s: any) => acc + parseInt(s.tirosDeclarados), 0);
-                const disparosTotais = disparosOriginal + disparosRecarregada + disparosDryFire;
-                const statusCraf = verificarValidade(a.validadeCraf);
-                const statusGt = verificarValidade(a.validadeGt);
-
+            <h3 style={{marginTop: 0, marginBottom: '15px', borderBottom: `2px solid ${theme.borderColor}`, paddingBottom: '8px'}}>
+              {abaAcervo === 'pessoal' ? 'Armas Registradas' : 'Armas Salvas do Clube'}
+            </h3>
+            <ul style={{ listStyleType: 'none', padding: 0, margin: 0 }}>
+              {(abaAcervo === 'pessoal' ? armas : armasClube).map((a: any) => {
+                const stats = calcularTirosArma(a.id, abaAcervo === 'clube');
+                const isExpanded = armaExpandida === a.id;
+                
                 return (
-                  <li key={a.id} style={{...styles.listItem, flexDirection: 'column', alignItems: 'flex-start', border: `1px solid ${theme.itemBorder}`, padding: '10px', borderRadius: '8px', marginBottom: '10px'}}>
-                    <div style={{display: 'flex', justifyContent: 'space-between', width: '100%', cursor: 'pointer'}} onClick={() => setArmaExpandida(armaExpandida === a.id ? null : a.id)}>
-                      <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
-                        {a.foto && <img src={a.foto} alt="Arma" style={{width: '45px', height: '45px', borderRadius: '4px', objectFit: 'cover'}} />}
-                        <div>
-                          <strong style={{ display: 'block' }}>{a.marca} {a.modelo}</strong>
-                          <div style={{display: 'flex', gap: '5px', marginTop: '4px'}}>
-                            <span style={styles.badge}>{a.calibre}</span>
-                            <span style={{...styles.badge, backgroundColor: '#8e44ad'}}>🎯 {disparosTotais} tiros</span>
-                          </div>
+                  <li key={a.id} style={{ border: `1px solid ${theme.itemBorder}`, padding: '10px', borderRadius: '8px', marginBottom: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => setArmaExpandida(isExpanded ? null : a.id)}>
+                      <div>
+                        <strong style={{ display: 'block', fontSize: '15px' }}>{a.marca} {a.modelo}</strong>
+                        <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                          {a.calibre && <span style={{ backgroundColor: '#34495e', color: 'white', padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' }}>{a.calibre}</span>}
+                          <span style={{ backgroundColor: '#e67e22', color: 'white', padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' }}>{stats.total} Tiros</span>
                         </div>
                       </div>
-                      <div onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-                        <button type="button" onClick={() => editarArma(a)} style={styles.btnAcao}>✏️</button>
-                        <button type="button" onClick={() => excluirArma(a.id)} style={styles.btnAcao}>🗑️</button>
-                      </div>
+                      <div style={{color: theme.textSec}}>{isExpanded ? '▲' : '▼'}</div>
                     </div>
-                    <div style={{width: '100%', fontSize: '11px', backgroundColor: theme.cardRelatorioBg, padding: '6px 10px', borderRadius: '4px', marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '4px', boxSizing: 'border-box'}}>
-                      <div style={{display: 'flex', justifyContent: 'space-between'}}>
-                        <span><strong>CRAF:</strong> {a.craf || 'Não inf.'}</span>
-                        {a.validadeCraf && <span style={{color: statusCraf.cor, fontWeight: 'bold'}}>● {statusCraf.texto}</span>}
-                      </div>
-                      <div style={{display: 'flex', justifyContent: 'space-between'}}>
-                        <span><strong>GT:</strong> {a.gt || 'Não inf.'}</span>
-                        {a.validadeGt && <span style={{color: statusGt.cor, fontWeight: 'bold'}}>● {statusGt.texto}</span>}
-                      </div>
-                    </div>
-                    {armaExpandida === a.id && (
-                      <div style={{width: '100%', marginTop: '15px', borderTop: `1px dashed ${theme.borderColor}`, paddingTop: '10px'}}>
-                        <h4 style={{fontSize: '13px', margin: '0 0 10px 0', color: theme.textMain}}>📊 Consumo de Munição</h4>
-                        <div style={{display: 'flex', gap: '5px', marginBottom: '15px', fontSize: '11px'}}>
-                          <span style={{backgroundColor: '#e8f4f8', color: '#2c3e50', padding: '4px 8px', borderRadius: '4px', border: '1px solid #3498db'}}>Orig.: {disparosOriginal}</span>
-                          <span style={{backgroundColor: '#fef5e7', color: '#2c3e50', padding: '4px 8px', borderRadius: '4px', border: '1px solid #f39c12'}}>Recarg.: {disparosRecarregada}</span>
-                          <span style={{backgroundColor: '#f9ebea', color: '#2c3e50', padding: '4px 8px', borderRadius: '4px', border: '1px solid #e74c3c'}}>Dry Fire: {disparosDryFire}</span>
+                    
+                    {isExpanded && (
+                      <div style={{marginTop: '15px', paddingTop: '15px', borderTop: `1px dashed ${theme.borderColor}`}}>
+                        
+                        <div style={{backgroundColor: theme.cardRelatorioBg, padding: '10px', borderRadius: '8px', marginBottom: '10px'}}>
+                          <strong style={{fontSize: '12px', display: 'block', marginBottom: '5px'}}>Desgaste por Munição:</strong>
+                          {Object.keys(stats.porMunicao).length > 0 ? (
+                            Object.entries(stats.porMunicao).map(([tipo, qtd]) => (
+                              <div key={tipo} style={{display: 'flex', justifyContent: 'space-between', fontSize: '12px', borderBottom: '1px solid #ccc', padding: '2px 0'}}>
+                                <span>{tipo}</span> <strong>{qtd as number}</strong>
+                              </div>
+                            ))
+                          ) : <span style={{fontSize: '12px', color: theme.textSec}}>Arma sem disparos registrados.</span>}
                         </div>
-                        <h4 style={{fontSize: '13px', margin: '0 0 10px 0', color: theme.textMain}}>🛠️ Controle de Manutenção</h4>
-                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: theme.caixaDiagBg, padding: '8px', borderRadius: '4px', fontSize: '12px', marginBottom: '10px'}}>
-                          <div style={{display: 'flex', alignItems: 'center', gap: '5px'}}>
-                            <strong style={{color: theme.caixaDiagText}}>Limpeza:</strong>
-                            <input type="date" style={{...styles.input, padding: '4px 6px', marginBottom: 0, width: 'auto', fontSize: '12px'}} value={a.dataUltimaLimpeza || ''} onChange={e => atualizarDataLimpeza(a.id, e.target.value)} />
-                          </div>
-                          <button onClick={() => registrarLimpezaHoje(a.id)} style={{...styles.btnSecundario, padding: '4px 8px', width: 'auto', fontSize: '11px'}}>Limpei Hoje</button>
-                        </div>
-                        <div style={{display: 'flex', gap: '5px', marginBottom: '10px'}}>
-                          <input type="date" style={{...styles.input, marginBottom: 0, padding: '6px', fontSize: '12px', flex: 1}} value={dataNovaManutencao} onChange={e => setDataNovaManutencao(e.target.value)} />
-                          <input style={{...styles.input, marginBottom: 0, padding: '6px', fontSize: '12px', flex: 2}} placeholder="Ex: Troca de mola" value={descNovaManutencao} onChange={e => setDescNovaManutencao(e.target.value)} />
-                          <button onClick={() => adicionarManutencao(a.id)} style={{...styles.button, marginTop: 0, padding: '6px 10px', width: 'auto', fontSize: '12px'}}>Add</button>
-                        </div>
-                        {a.historicoManutencao.length > 0 && (
-                          <ul style={{listStyle: 'none', padding: 0, margin: 0, fontSize: '12px'}}>
-                            {a.historicoManutencao.map((man: any) => (
-                              <li key={man.id} style={{display: 'flex', justifyContent: 'space-between', borderBottom: `1px solid ${theme.itemBorder}`, padding: '4px 0'}}>
-                                <span><strong>{formatarData(man.data)}:</strong> {man.descricao}</span>
-                                <button onClick={() => removerManutencao(a.id, man.id)} style={{background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer'}}>x</button>
-                              </li>
-                            ))}
-                          </ul>
+
+                        {abaAcervo === 'pessoal' && (
+                          <>
+                            <div style={{backgroundColor: theme.cardRelatorioBg, padding: '10px', borderRadius: '8px', marginBottom: '10px'}}>
+                              <strong style={{fontSize: '12px', display: 'block', marginBottom: '5px'}}>Registro ({a.orgao}):</strong>
+                              <div style={{fontSize: '12px', marginBottom: '4px'}}>
+                                <strong>CRAF:</strong> {a.craf || 'N/A'} - Val: {formatarData(a.validadeCraf) || 'N/A'} 
+                                {a.validadeCraf && <span style={{marginLeft: '5px', color: verificarValidade(a.validadeCraf).cor, fontWeight: 'bold'}}>({verificarValidade(a.validadeCraf).texto})</span>}
+                              </div>
+                              <div style={{fontSize: '12px'}}>
+                                <strong>GT:</strong> {a.gt || 'N/A'} - Val: {formatarData(a.validadeGt) || 'N/A'}
+                                {a.validadeGt && <span style={{marginLeft: '5px', color: verificarValidade(a.validadeGt).cor, fontWeight: 'bold'}}>({verificarValidade(a.validadeGt).texto})</span>}
+                              </div>
+                            </div>
+
+                            <div style={{backgroundColor: theme.cardRelatorioBg, padding: '10px', borderRadius: '8px', marginBottom: '10px'}}>
+                              <strong style={{fontSize: '12px', display: 'block', marginBottom: '5px'}}>Manutenção Expressa:</strong>
+                              <div style={{display: 'flex', gap: '5px'}}>
+                                <input type="date" style={{...styles.input, marginBottom: 0, padding: '5px', fontSize: '11px', flex: 1}} value={dataNovaManutencao} onChange={e => setDataNovaManutencao(e.target.value)} />
+                                <button onClick={() => registrarLimpeza(a.id)} style={{backgroundColor: '#27ae60', color: 'white', border: 'none', borderRadius: '4px', padding: '5px 10px', fontSize: '11px', cursor: 'pointer', fontWeight: 'bold'}}>Marcar Última Limpeza</button>
+                              </div>
+                              {a.dataUltimaLimpeza && <p style={{fontSize: '11px', margin: '5px 0 0 0', color: '#27ae60'}}>✅ Realizada em {formatarData(a.dataUltimaLimpeza)}</p>}
+                            </div>
+
+                            <div style={{backgroundColor: theme.cardRelatorioBg, padding: '10px', borderRadius: '8px', marginBottom: '15px'}}>
+                              <strong style={{fontSize: '12px', display: 'block', marginBottom: '5px'}}>Histórico de Manutenção e Peças:</strong>
+                              <div style={{display: 'flex', gap: '5px', marginBottom: '10px'}}>
+                                <input type="date" style={{...styles.input, marginBottom: 0, padding: '5px', fontSize: '11px', flex: 1}} value={dataNovaManutencao} onChange={e => setDataNovaManutencao(e.target.value)} />
+                                <input type="text" placeholder="Ex: Troca de Mola" style={{...styles.input, marginBottom: 0, padding: '5px', fontSize: '11px', flex: 2}} value={descNovaManutencao} onChange={e => setDescNovaManutencao(e.target.value)} />
+                                <button onClick={() => adicionarManutencao(a.id)} style={{backgroundColor: '#2980b9', color: 'white', border: 'none', borderRadius: '4px', padding: '5px 10px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold'}}>+</button>
+                              </div>
+                              
+                              <ul style={{listStyle: 'none', padding: 0, margin: 0, fontSize: '11px', maxHeight: '100px', overflowY: 'auto'}}>
+                                {(a.historicoManutencao || []).map((m: any, idx: number) => (
+                                  <li key={idx} style={{display: 'flex', justifyContent: 'space-between', borderBottom: `1px solid ${theme.itemBorder}`, padding: '4px 0'}}>
+                                    <span><strong>{formatarData(m.data)}:</strong> {m.descricao}</span>
+                                    <button onClick={() => excluirManutencao(a.id, idx)} style={{background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer'}}>✖</button>
+                                  </li>
+                                ))}
+                                {!(a.historicoManutencao && a.historicoManutencao.length > 0) && <li style={{color: theme.textSec}}>Nenhum registro de peça ou reparo.</li>}
+                              </ul>
+                            </div>
+                          </>
                         )}
+
+                        <div style={{display: 'flex', gap: '10px'}}>
+                          <button onClick={() => editarArma(a)} style={{...styles.button, backgroundColor: '#f39c12', flex: 1, padding: '8px'}}>✏️ Editar</button>
+                          <button onClick={() => excluirArma(a.id)} style={{...styles.button, backgroundColor: '#e74c3c', flex: 1, padding: '8px'}}>🗑️ Excluir</button>
+                        </div>
                       </div>
                     )}
                   </li>
-                )
+                );
               })}
             </ul>
           </div>
         </div>
       )}
 
+      {/* ABA DE TREINO */}
       {telaAtual === 'treino' && (
         <div className="no-print" style={styles.card}>
-          <h3 style={styles.cardTitle}>{sessaoEmEdicaoId ? 'Editar Treino Salvo' : 'Registrar Sessão'}</h3>
-          {sessaoEmEdicaoId && (
-            <div style={{backgroundColor: '#fff3cd', color: '#856404', padding: '10px', borderRadius: '8px', marginBottom: '15px', fontSize: '13px', border: '1px solid #ffeeba'}}>
-              <strong>Atenção:</strong> Você está editando um treino antigo. Modifique os dados e clique em "Atualizar Treino" no final.
+          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `2px solid ${theme.borderColor}`, paddingBottom: '8px', marginBottom: '15px'}}>
+            <h3 style={{margin: 0}}>{sessaoEmEdicaoId ? 'Editar Sessão' : 'Registrar Sessão'}</h3>
+            {sessaoEmEdicaoId && <button onClick={limparFormularioTreino} style={{...styles.btnAcao, color: '#e74c3c', fontSize: '12px', fontWeight: 'bold'}}>✖ Cancelar</button>}
+          </div>
+
+          <div style={{display: 'flex', gap: '15px', marginBottom: '10px'}}>
+            <label style={{fontSize: '13px', cursor: 'pointer'}}><input type="radio" checked={tipoArmaTreino === 'acervo'} onChange={() => setTipoArmaTreino('acervo')} /> Meu Acervo</label>
+            <label style={{fontSize: '13px', cursor: 'pointer'}}><input type="radio" checked={tipoArmaTreino === 'clube'} onChange={() => setTipoArmaTreino('clube')} /> Arma do Clube</label>
+          </div>
+          
+          <div style={{marginBottom: '12px'}}>
+            <select style={{...styles.input, marginBottom: mostraNovaArmaClube ? '5px' : '0'}} value={armaSelecionada} onChange={(e) => {
+              if (e.target.value === 'NOVA') setMostraNovaArmaClube(true);
+              else { setArmaSelecionada(e.target.value); setMostraNovaArmaClube(false); }
+            }}>
+              <option value="">Selecione a Arma...</option>
+              {(tipoArmaTreino === 'acervo' ? armas : armasClube).map((a: any) => <option key={a.id} value={a.id}>{a.marca} {a.modelo} ({a.calibre})</option>)}
+              {tipoArmaTreino === 'clube' && <option value="NOVA" style={{fontWeight: 'bold'}}>+ Adicionar Nova Arma do Clube...</option>}
+            </select>
+            {mostraNovaArmaClube && (
+              <div style={{display: 'flex', gap: '5px', backgroundColor: theme.cardRelatorioBg, padding: '10px', borderRadius: '8px'}}>
+                <input type="text" placeholder="Marca/Modelo" style={{...styles.input, marginBottom: 0, flex: 2}} value={novaArmaClubeMarca} onChange={e => setNovaArmaClubeMarca(e.target.value)} />
+                <select style={{...styles.input, marginBottom: 0, flex: 1}} value={novaArmaClubeCalibre} onChange={e => setNovaArmaClubeCalibre(e.target.value)}>
+                  <option value="">Calibre</option>
+                  {CALIBRES_DISPONIVEIS.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <button onClick={adicionarNovaArmaClube} style={{backgroundColor: '#27ae60', color: 'white', border: 'none', borderRadius: '8px', padding: '0 10px', fontWeight: 'bold'}}>Add</button>
+              </div>
+            )}
+          </div>
+
+          <div style={{display: 'flex', gap: '10px'}}>
+            <div style={{flex: 1}}>
+              <label style={{fontSize: '13px', fontWeight: 'bold', color: theme.textSec}}>Munição:</label>
+              <select style={styles.input} value={tipoMunicao} onChange={(e) => setTipoMunicao(e.target.value)}>
+                <option value="Original">Original</option>
+                <option value="Recarregada">Recarregada</option>
+                <option value="Dry Fire">Dry Fire</option>
+              </select>
+            </div>
+            <div style={{flex: 1}}>
+              <label style={{fontSize: '13px', fontWeight: 'bold', color: theme.textSec}}>Distância (m):</label>
+              <input type="number" style={styles.input} value={distancia} onChange={(e) => setDistancia(e.target.value)} />
+            </div>
+          </div>
+
+          <label style={{display: 'flex', alignItems: 'center', gap: '5px', fontSize: '13px', fontWeight: 'bold', color: theme.textSec, marginBottom: '15px', cursor: 'pointer'}}>
+            <input type="checkbox" checked={ehHabitualidade} onChange={(e) => setEhHabitualidade(e.target.checked)} style={{width: '16px', height: '16px'}} />
+            Válido para Habitualidade (CAC)
+          </label>
+
+          <label style={{fontSize: '13px', fontWeight: 'bold', color: theme.textSec}}>Qtd Disparos (Calculado na foto):</label>
+          <input type="number" style={{...styles.input, opacity: 0.7, cursor: 'not-allowed'}} value={qtdTiros} disabled placeholder="Auto" />
+          
+          {(!imagemAlvo || imagemAlvo === ALVO_CIRCULAR || imagemAlvo === ALVO_HUMANOIDE) && (
+            <div style={{marginBottom: '15px', backgroundColor: theme.cardRelatorioBg, padding: '10px', borderRadius: '8px'}}>
+              <label style={{display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '8px'}}>Tipo de Alvo Padrão:</label>
+              <div style={{display: 'flex', gap: '15px'}}>
+                <label style={{fontSize: '14px', cursor: 'pointer'}}><input type="radio" name="alvo" checked={tipoAlvoPadrao === 'circular'} onChange={() => setTipoAlvoPadrao('circular')} /> Circular</label>
+                <label style={{fontSize: '14px', cursor: 'pointer'}}><input type="radio" name="alvo" checked={tipoAlvoPadrao === 'humanoide'} onChange={() => setTipoAlvoPadrao('humanoide')} /> Humanoide (PF)</label>
+              </div>
             </div>
           )}
-          <div style={{display: 'flex', gap: '10px'}}>
-            <div style={{flex: 2}}><label style={styles.label}>Data:</label><input type="date" style={styles.input} value={dataTreino} onChange={(e) => setDataTreino(e.target.value)} /></div>
-            <div style={{flex: 1}}><label style={styles.label}>Hora:</label><input type="time" style={styles.input} value={horaTreino} onChange={(e) => setHoraTreino(e.target.value)} /></div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
+            <label style={{fontSize: '13px', fontWeight: 'bold', color: theme.textSec}}>Upload da Foto para Auto-Análise:</label>
+            {imagemAlvo !== ALVO_CIRCULAR && imagemAlvo !== ALVO_HUMANOIDE && (
+              <button onClick={removerFoto} style={{ background: 'none', border: 'none', color: '#e74c3c', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+                🗑️ Remover Foto
+              </button>
+            )}
           </div>
-          <label style={styles.label}>Arma Utilizada:</label>
-          <select style={styles.input} value={armaSelecionada} onChange={(e) => setArmaSelecionada(e.target.value)}>
-            <option value="">Selecione...</option>
-            {armas.map((a: any) => <option key={a.id} value={a.id}>{a.marca} {a.modelo}</option>)}
-          </select>
-          <div style={{display: 'flex', gap: '10px'}}>
-            <div style={{flex: 1}}><label style={styles.label}>Qtd Disparos:</label><input type="number" style={styles.input} value={qtdTiros} onChange={(e) => setQtdTiros(e.target.value)} /></div>
-            <div style={{flex: 1}}><label style={styles.label}>Munição:</label><select style={styles.input} value={tipoMunicao} onChange={(e) => setTipoMunicao(e.target.value)}><option value="Original">Original</option><option value="Recarregada">Recarregada</option><option value="Dry Fire">Dry Fire</option></select></div>
-          </div>
-          <label style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '15px', backgroundColor: theme.caixaDiagBg, padding: '10px', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold', color: theme.caixaDiagText}}>
-            <input type="checkbox" checked={ehHabitualidade} onChange={e => setEhHabitualidade(e.target.checked)} style={{transform: 'scale(1.3)'}} />
-            Habitualidade Oficial
-          </label>
-          <label style={styles.label}>Foto do Alvo:</label>
-          <input type="file" accept="image/*" onChange={lidarComUploadAlvo} style={{marginBottom: '15px', color: theme.textMain}} />
-          <div style={styles.alvoContainer}>
-            <p style={styles.instrucao}>Toque na imagem para marcar acertos (Max: {qtdTiros || '0'})</p>
-            <RenderizarAlvo imagem={imagemAlvo} marcacoes={marcacoes} onTargetClick={marcarTiro} />
-            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px'}}>
-              <span style={styles.contadorTiros}>Impactos: {marcacoes.length} / {qtdTiros || 0}</span>
-              {marcacoes.length > 0 && <button type="button" onClick={() => setMarcacoes(marcacoes.slice(0,-1))} style={{...styles.btnAcao, color: '#e74c3c', fontSize: '14px', fontWeight: 'bold'}}>Desfazer Último</button>}
+          
+          <input type="file" accept="image/*" ref={fileInputRef} onChange={lidarComUploadAlvo} style={{marginBottom: '15px', width: '100%', color: theme.textMain}} />
+          
+          <div style={{backgroundColor: theme.cardRelatorioBg, padding: '10px', borderRadius: '8px', border: `1px solid ${theme.borderColor}`}}>
+            <p style={{fontSize: '12px', textAlign: 'center', marginBottom: '10px', color: theme.textSec}}>
+              Toque no papel para <strong>adicionar</strong> tiro.<br/>Toque em cima do tiro para <strong>apagar</strong>.
+            </p>
+            <RenderizarAlvo 
+              imagem={imagemAlvo} 
+              marcacoes={marcacoes} 
+              onTargetClick={marcarTiro} 
+              onImgLoad={lidarCarregamentoImagem}
+              imgRef={imgAlvoRef} 
+            />
+            
+            <div style={{textAlign: 'center', marginTop: '10px'}}>
+              <span style={{fontWeight: 'bold', fontSize: '15px', color: '#e74c3c'}}>Impactos Identificados: {marcacoes.length}</span>
             </div>
           </div>
-          <div style={{display: 'flex', gap: '10px', marginTop: '15px'}}>
-            <button onClick={finalizarSessao} style={{...styles.button, backgroundColor: '#27ae60', flex: 2}}>
-              {sessaoEmEdicaoId ? 'Atualizar Treino' : 'Finalizar Treino'}
-            </button>
-            {sessaoEmEdicaoId && <button onClick={cancelarEdicaoSessao} style={{...styles.button, backgroundColor: '#95a5a6', flex: 1}}>Cancelar</button>}
-          </div>
+          
+          <button onClick={finalizarSessao} style={{...styles.button, backgroundColor: sessaoEmEdicaoId ? '#f39c12' : '#27ae60', marginTop: '15px'}}>
+            {sessaoEmEdicaoId ? 'Atualizar Treino' : 'Finalizar Treino'}
+          </button>
         </div>
       )}
 
+      {/* ABA LOGBOOK & COMPARAÇÃO */}
       {telaAtual === 'relatorios' && (
-        <div className="no-print">
-          <div style={styles.card}>
-            <h3 style={styles.cardTitle}>Filtros e Análise</h3>
-            <div style={{display: 'flex', gap: '10px', marginBottom: '10px'}}>
-              <div style={{flex: 1}}><label style={styles.label}>De:</label><input type="date" style={styles.input} value={filtroDataInicio} onChange={e => setFiltroDataInicio(e.target.value)} /></div>
-              <div style={{flex: 1}}><label style={styles.label}>Até:</label><input type="date" style={styles.input} value={filtroDataFim} onChange={e => setFiltroDataFim(e.target.value)} /></div>
-            </div>
-            <select style={styles.input} value={filtroArma} onChange={e => setFiltroArma(e.target.value)}>
-              <option value="">Todas as armas</option>
-              {armas.map((a: any) => <option key={a.id} value={a.id}>{a.marca} {a.modelo}</option>)}
-            </select>
-            <button onClick={() => { setModoComparacao(!modoComparacao); setSessoesParaComparar([]); }} style={{...styles.button, backgroundColor: modoComparacao ? '#e74c3c' : '#8e44ad', marginTop: 0}}>
-              {modoComparacao ? 'Cancelar Comparação' : '⚖️ Comparar Períodos'}
+        <div className="no-print" style={styles.card}>
+          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `2px solid ${theme.borderColor}`, paddingBottom: '8px', marginBottom: '15px'}}>
+            <h3 style={{margin: 0}}>Logbook Analítico</h3>
+            <button onClick={() => { setModoComparacao(!modoComparacao); setSessoesParaComparar([]); }} style={{...styles.btnSecundario, width: 'auto', padding: '5px 10px', margin: 0, backgroundColor: modoComparacao ? '#e74c3c' : '#2980b9', color: 'white'}}>
+              {modoComparacao ? 'Cancelar Comparação' : '⚖️ Comparar'}
             </button>
           </div>
 
+          <div style={{backgroundColor: theme.cardRelatorioBg, padding: '10px', borderRadius: '8px', marginBottom: '15px'}}>
+            <label style={{fontSize: '12px', fontWeight: 'bold'}}>Filtros e Ordenação:</label>
+            <div style={{display: 'flex', gap: '10px', marginTop: '5px', marginBottom: '8px'}}>
+              <select style={{...styles.input, marginBottom: 0, flex: 1}} value={filtroArmaLogbook} onChange={e => setFiltroArmaLogbook(e.target.value)}>
+                <option value="">Todas as Armas</option>
+                {Array.from(new Set(historicoSessoes.map((s:any) => s.armaId?.toString()))).map(id => {
+                  const sRef = historicoSessoes.find((s:any) => s.armaId?.toString() === id);
+                  return sRef ? <option key={id as string} value={id as string}>{sRef.armaNome} {sRef.tipoArmaTreino === 'clube' ? '(Clube)' : ''}</option> : null;
+                })}
+              </select>
+              <select style={{...styles.input, marginBottom: 0, flex: 1}} value={ordemLogbook} onChange={e => setOrdemLogbook(e.target.value)}>
+                <option value="padrao">Padrão (Data/Arma/Score)</option>
+                <option value="data">Data (Mais Recente)</option>
+                <option value="arma">Arma (A-Z)</option>
+                <option value="calibre">Calibre</option>
+                <option value="score">Pontuação (Maior p/ Menor)</option>
+              </select>
+            </div>
+            <div style={{display: 'flex', gap: '10px'}}>
+              <div style={{flex: 1}}><input type="date" style={{...styles.input, marginBottom: 0}} value={filtroDataInicioLogbook} onChange={e => setFiltroDataInicioLogbook(e.target.value)} /></div>
+              <div style={{flex: 1}}><input type="date" style={{...styles.input, marginBottom: 0}} value={filtroDataFimLogbook} onChange={e => setFiltroDataFimLogbook(e.target.value)} /></div>
+            </div>
+          </div>
+
+          {modoComparacao && (
+            <div style={{backgroundColor: '#fff3cd', padding: '10px', borderRadius: '8px', marginBottom: '15px', border: '1px solid #ffeeba', color: '#856404', fontSize: '13px', textAlign: 'center'}}>
+              Selecione 2 treinos abaixo para comparar o seu desempenho.
+            </div>
+          )}
+
+          {modoComparacao && renderAnaliseEvolucao()}
+
           {modoComparacao && sessoesParaComparar.length === 2 && (
-            <div style={styles.card}>
-              <h3 style={styles.cardTitle}>Evolução / Comparativo</h3>
-              <div style={{display: 'flex', gap: '10px', marginBottom: '15px'}}>
-                {sessoesParaComparar.map((sessaoComp: any, i: number) => (
-                  <div key={i} style={{flex: 1, backgroundColor: theme.cardRelatorioBg, padding: '10px', borderRadius: '8px', border: `1px solid ${theme.borderColor}`}}>
-                    <div style={{fontSize: '12px', fontWeight: 'bold', marginBottom: '2px', textAlign: 'center'}}>{formatarData(sessaoComp.data)}</div>
-                    <div style={{fontSize: '10px', color: theme.textSec, textAlign: 'center', marginBottom: '5px'}}>{sessaoComp.hora}</div>
-                    <div style={{fontSize: '11px', textAlign: 'center', marginBottom: '10px'}}>{sessaoComp.armaNome}</div>
-                    <RenderizarAlvo imagem={sessaoComp.imagemOriginal} marcacoes={sessaoComp.marcacoesSalvas} />
-                    <div style={{fontSize: '12px', marginTop: '10px', textAlign: 'center', backgroundColor: theme.caixaDiagBg, color: theme.caixaDiagText, padding: '5px', borderRadius: '4px'}}>
-                      <strong>Score:</strong> {sessaoComp.precisaoScore}%
+            <div style={{backgroundColor: theme.caixaDiagBg, padding: '15px', borderRadius: '8px', marginBottom: '20px', border: `1px solid ${theme.borderColor}`}}>
+              <div style={{display: 'flex', gap: '10px'}}>
+                {sessoesParaComparar.map((s, idx) => (
+                  <div key={idx} style={{flex: 1, backgroundColor: theme.cardBg, padding: '10px', borderRadius: '8px', border: `1px solid ${theme.itemBorder}`, textAlign: 'center'}}>
+                    <strong style={{display: 'block', fontSize: '13px', marginBottom: '5px'}}>{formatarData(s.data)}</strong>
+                    <div style={{marginBottom: '10px'}}><RenderizarAlvo imagem={s.imagemOriginal} marcacoes={s.marcacoesSalvas} /></div>
+                    <div style={{fontSize: '12px'}}>
+                      <p style={{margin: '2px 0'}}><strong>Arma:</strong> {s.armaNome} {s.tipoArmaTreino === 'clube' ? '(Clube)' : ''}</p>
+                      <p style={{margin: '2px 0'}}><strong>Calibre:</strong> {s.calibre}</p>
+                      <p style={{margin: '2px 0'}}><strong>Distância:</strong> {s.distancia || 10}m</p>
+                      <p style={{margin: '2px 0'}}><strong>Score:</strong> {s.precisaoScore}%</p>
                     </div>
                   </div>
                 ))}
               </div>
-              {calcularEvolucao()}
             </div>
           )}
 
-          <div style={styles.card}>
-            <h3 style={styles.cardTitle}>Sessões Salvas {modoComparacao && '(Selecione 2)'}</h3>
-            {sessoesFiltradas.length === 0 ? <p>Nenhum treino encontrado.</p> : (
-              sessoesFiltradas.map((sessao: any) => (
-                <div 
-                  key={sessao.id} 
-                  style={{...styles.cardRelatorio, border: (modoComparacao && sessoesParaComparar.find((s: any) => s.id === sessao.id)) ? '2px solid #8e44ad' : `1px solid ${theme.itemBorder}`, cursor: 'pointer'}}
-                  onClick={() => {
-                    if(modoComparacao) toggleComparacao(sessao);
-                    else setSessaoExpandida(sessaoExpandida === sessao.id ? null : sessao.id);
-                  }}
-                >
+          {sessoesLogbookFiltradas.length === 0 ? <p>Nenhum treino atende aos filtros.</p> : (
+            sessoesLogbookFiltradas.map((sessao: any) => (
+              <div key={sessao.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
+                {modoComparacao && (
+                  <input type="checkbox" checked={!!sessoesParaComparar.find(s => s.id === sessao.id)} onChange={() => toggleComparacao(sessao)} style={{width: '20px', height: '20px'}} />
+                )}
+                <div style={{ flex: 1, backgroundColor: theme.cardRelatorioBg, borderRadius: '8px', padding: '12px', border: `1px solid ${theme.itemBorder}`, cursor: 'pointer' }} onClick={() => !modoComparacao && setSessaoExpandida(sessaoExpandida === sessao.id ? null : sessao.id)}>
                   <div style={{display: 'flex', justifyContent: 'space-between', borderBottom: `1px solid ${theme.itemBorder}`, paddingBottom: '8px', marginBottom: '8px'}}>
+                    <div><strong>{formatarData(sessao.data)}</strong> <span style={{fontSize: '11px', color: theme.textSec, marginLeft: '5px'}}>({sessao.distancia || 10}m)</span></div>
+                    <span>Score: <strong style={{color: '#2980b9'}}>{sessao.precisaoScore}%</strong></span>
+                  </div>
+                  <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
                     <div>
-                      <strong>{formatarData(sessao.data)}</strong> <span style={{fontSize: '12px', color: theme.textSec}}>às {sessao.hora}</span>
+                      <strong>{sessao.armaNome}</strong> 
+                      {sessao.tipoArmaTreino === 'clube' && <span style={{fontSize:'10px', backgroundColor:'#e67e22', color:'white', padding:'2px 5px', borderRadius:'8px', marginLeft:'5px'}}>Clube</span>}
                     </div>
-                    {sessao.habitualidade && <span style={{backgroundColor: '#f39c12', color: 'white', fontSize: '10px', padding: '3px 6px', borderRadius: '4px', fontWeight: 'bold'}}>Habitualidade</span>}
+                    <div style={{fontSize: '13px'}}>{sessao.tirosDeclarados} tiros ({sessao.municao})</div>
                   </div>
-                  <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '14px', marginBottom: '10px'}}>
-                    <span><strong>{sessao.armaNome}</strong> <span style={{fontSize: '11px', color: theme.textSec}}>({sessao.municao})</span></span>
-                    <span>Tiros: {sessao.tirosDeclarados}</span>
-                  </div>
-                  <div style={styles.caixaDiagnostico}>
-                    <div style={{marginBottom: '5px'}}>
-                       <strong style={{color: Number(sessao.precisaoScore) > 80 ? '#27ae60' : (Number(sessao.precisaoScore) < 50 ? '#e74c3c' : '#f39c12')}}>
-                          Score de Precisão: {sessao.precisaoScore}%
-                       </strong>
-                    </div>
-                    <strong>Laudo Técnico:</strong> {sessao.diagnostico}
-                  </div>
-
-                  {(!modoComparacao && sessaoExpandida === sessao.id) && (
+                  
+                  {sessaoExpandida === sessao.id && !modoComparacao && (
                     <div style={{marginTop: '15px', paddingTop: '15px', borderTop: `1px dashed ${theme.borderColor}`}}>
-                      <strong style={{display: 'block', marginBottom: '10px', fontSize: '13px'}}>Alvo Registrado:</strong>
                       <RenderizarAlvo imagem={sessao.imagemOriginal} marcacoes={sessao.marcacoesSalvas} />
+                      
+                      {(sessao.diagnosticos && sessao.diagnosticos.length > 0) && (
+                        <div style={{ backgroundColor: theme.caixaDiagBg, padding: '12px', borderRadius: '8px', marginTop: '15px', border: `1px solid ${theme.borderColor}` }}>
+                          <h4 style={{ margin: '0 0 8px 0', fontSize: '13px', color: theme.caixaDiagText }}>🧠 Análise de Fundamentos</h4>
+                          <ul style={{ margin: 0, paddingLeft: '15px', fontSize: '12px', color: theme.textMain }}>
+                            {sessao.diagnosticos.map((d: string, i: number) => <li key={i} style={{marginBottom: '4px'}}>{d}</li>)}
+                          </ul>
+                        </div>
+                      )}
+
                       <div style={{display: 'flex', gap: '10px', marginTop: '15px'}}>
-                        <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); editarSessao(sessao); }} style={{...styles.btnSecundario, flex: 1}}>✏️ Editar</button>
-                        <button onClick={(e: React.MouseEvent) => { e.stopPropagation(); excluirSessao(sessao.id); }} style={{...styles.button, backgroundColor: '#e74c3c', flex: 1, padding: '10px', marginTop: 0}}>🗑️ Apagar</button>
+                        <button onClick={(e) => { e.stopPropagation(); editarSessao(sessao); }} style={{...styles.button, backgroundColor: '#f39c12', flex: 1}}>✏️ Editar</button>
+                        <button onClick={(e) => { e.stopPropagation(); setHistoricoSessoes(historicoSessoes.filter((s:any) => s.id !== sessao.id)); }} style={{...styles.button, backgroundColor: '#e74c3c', flex: 1}}>🗑️ Apagar</button>
                       </div>
                     </div>
                   )}
                 </div>
-              ))
-            )}
-          </div>
+              </div>
+            ))
+          )}
         </div>
       )}
 
+      {/* ABA CAC */}
       {telaAtual === 'cac' && (
         <div>
           <div className="no-print" style={styles.card}>
             <div style={{display: 'flex', justifyContent: 'space-between'}}>
-              <h3 style={styles.cardTitle}>Documento do Atirador</h3>
+              <h3 style={{marginTop: 0, marginBottom: '15px', borderBottom: `2px solid ${theme.borderColor}`, paddingBottom: '8px', width: '100%'}}>Documento do Atirador</h3>
               <button onClick={() => setEditandoPerfil(!editandoPerfil)} style={{...styles.btnAcao, fontSize: '14px', color: '#2980b9'}}>✏️ Editar</button>
             </div>
             {editandoPerfil ? (
               <div style={{marginTop: '10px'}}>
-                <label style={styles.label}>Nome Completo:</label>
+                <label style={{fontSize: '13px', fontWeight: 'bold', color: theme.textSec}}>Nome Completo:</label>
                 <input style={styles.input} value={perfil.nome} onChange={e => setPerfil({...perfil, nome: e.target.value})} />
-                <label style={styles.label}>Número do CR:</label>
+                <label style={{fontSize: '13px', fontWeight: 'bold', color: theme.textSec}}>Número do CR:</label>
                 <input style={styles.input} value={perfil.cr} onChange={e => setPerfil({...perfil, cr: e.target.value})} />
-                <label style={styles.label}>Validade do CR:</label>
+                <label style={{fontSize: '13px', fontWeight: 'bold', color: theme.textSec}}>Validade do CR:</label>
                 <input type="date" style={styles.input} value={perfil.validadeCr} onChange={e => setPerfil({...perfil, validadeCr: e.target.value})} />
+                <label style={{fontSize: '13px', fontWeight: 'bold', color: theme.textSec}}>Clube Afiliado:</label>
+                <input style={styles.input} placeholder="Nome do Clube" value={perfil.clubeAfiliado} onChange={e => setPerfil({...perfil, clubeAfiliado: e.target.value})} />
                 <button onClick={() => setEditandoPerfil(false)} style={styles.button}>Salvar Perfil</button>
               </div>
             ) : (
               <div style={{backgroundColor: theme.cardRelatorioBg, padding: '15px', borderRadius: '8px'}}>
                 <p style={{margin: '0 0 5px 0'}}><strong>Nome:</strong> {perfil.nome}</p>
                 <p style={{margin: '0 0 5px 0'}}><strong>CR nº:</strong> {perfil.cr || 'Não informado'}</p>
+                <p style={{margin: '0 0 5px 0'}}><strong>Clube:</strong> {perfil.clubeAfiliado || 'Não informado'}</p>
                 <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
                   <strong>Validade:</strong> {formatarData(perfil.validadeCr) || 'Não informada'}
                   {perfil.validadeCr && (
@@ -650,30 +1061,18 @@ export default function LogbookApp({ usuarioLogout }: LogbookAppProps) {
           </div>
 
           <div className="no-print" style={styles.card}>
-            <h3 style={styles.cardTitle}>Gerar Relatório de Habitualidade</h3>
+            <h3 style={{marginTop: 0, marginBottom: '15px', borderBottom: `2px solid ${theme.borderColor}`, paddingBottom: '8px'}}>Gerar Relatório de Habitualidade</h3>
             <div style={{display: 'flex', gap: '10px', marginBottom: '10px'}}>
-              <div style={{flex: 1}}><label style={styles.label}>Data Inicial:</label><input type="date" style={styles.input} value={filtroHabInicio} onChange={e => setFiltroHabInicio(e.target.value)} /></div>
-              <div style={{flex: 1}}><label style={styles.label}>Data Final:</label><input type="date" style={styles.input} value={filtroHabFim} onChange={e => setFiltroHabFim(e.target.value)} /></div>
+              <div style={{flex: 1}}><label style={{fontSize: '13px', fontWeight: 'bold', color: theme.textSec}}>Data Inicial:</label><input type="date" style={styles.input} value={filtroHabInicio} onChange={e => setFiltroHabInicio(e.target.value)} /></div>
+              <div style={{flex: 1}}><label style={{fontSize: '13px', fontWeight: 'bold', color: theme.textSec}}>Data Final:</label><input type="date" style={styles.input} value={filtroHabFim} onChange={e => setFiltroHabFim(e.target.value)} /></div>
             </div>
-            <button onClick={salvarPeriodoHabitualidade} style={{...styles.btnSecundario, marginBottom: '15px'}}>💾 Salvar este Período no Histórico</button>
-
-            {relatoriosHabSalvos.length > 0 && (
-              <div style={{backgroundColor: theme.caixaDiagBg, padding: '10px', borderRadius: '8px', marginBottom: '15px'}}>
-                <h4 style={{margin: '0 0 10px 0', fontSize: '12px', color: theme.caixaDiagText}}>📂 Relatórios Antigos Salvos</h4>
-                {relatoriosHabSalvos.map((rel: any) => (
-                  <div key={rel.id} onClick={() => carregarRelatorioSalvo(rel)} style={{display: 'flex', justifyContent: 'space-between', padding: '6px', borderBottom: `1px solid ${theme.borderColor}`, cursor: 'pointer', fontSize: '12px'}}>
-                    <span><strong>{formatarData(rel.inicio)}</strong> até <strong>{formatarData(rel.fim)}</strong></span>
-                    <span style={{color: theme.textSec}}>Gerado em: {formatarData(rel.criacao)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
+            <button onClick={salvarPeriodoHabitualidade} style={{...styles.btnSecundario, marginBottom: '15px'}}>💾 Salvar este Período</button>
           </div>
 
           <div className="relatorio-oficial" style={{border: '2px solid #2c3e50', padding: '20px', borderRadius: '8px', backgroundColor: 'white', color: 'black'}}>
             <h4 style={{textAlign: 'center', margin: '0 0 15px 0', textTransform: 'uppercase', fontSize: '16px', color: 'black'}}>Comprovação de Treinamento</h4>
             <p style={{fontSize: '12px', marginBottom: '15px', lineHeight: '1.5', color: 'black'}}>
-              Declaro para os devidos fins que o atirador desportivo <strong>{perfil.nome}</strong> (CR: {perfil.cr}), 
+              Declaro para os devidos fins que o atirador desportivo <strong>{perfil.nome}</strong> (CR: {perfil.cr}), {perfil.clubeAfiliado ? `afiliado ao clube ${perfil.clubeAfiliado}, ` : ''} 
               realizou as seguintes práticas de tiro desportivo
               {filtroHabInicio && filtroHabFim ? ` no período de ${formatarData(filtroHabInicio)} a ${formatarData(filtroHabFim)}` : ''}:
             </p>
@@ -682,12 +1081,12 @@ export default function LogbookApp({ usuarioLogout }: LogbookAppProps) {
                 <tr style={{backgroundColor: '#eee'}}>
                   <th style={{border: '1px solid #ccc', padding: '8px', textAlign: 'center', width: '25%', color: 'black'}}>Data</th>
                   <th style={{border: '1px solid #ccc', padding: '8px', textAlign: 'left', width: '50%', color: 'black'}}>Arma / Calibre</th>
-                  <th style={{border: '1px solid #ccc', padding: '8px', textAlign: 'center', width: '25%', color: 'black'}}>Tiros Declarados</th>
+                  <th style={{border: '1px solid #ccc', padding: '8px', textAlign: 'center', width: '25%', color: 'black'}}>Tiros</th>
                 </tr>
               </thead>
               <tbody>
                 {sessoesHabitualidade.length === 0 ? (
-                  <tr><td colSpan={3} style={{border: '1px solid #ccc', padding: '8px', textAlign: 'center', color: 'black'}}>Nenhum treino registrado neste período.</td></tr>
+                  <tr><td colSpan={3} style={{border: '1px solid #ccc', padding: '8px', textAlign: 'center', color: 'black'}}>Nenhum treino registrado.</td></tr>
                 ) : (
                   sessoesHabitualidade.map((s: any) => (
                     <tr key={s.id}>
@@ -701,7 +1100,6 @@ export default function LogbookApp({ usuarioLogout }: LogbookAppProps) {
             </table>
             <div style={{borderTop: '1px solid #000', width: '70%', margin: '50px auto 10px auto'}}></div>
             <p style={{textAlign: 'center', fontSize: '12px', margin: 0, color: 'black'}}>Assinatura e Carimbo do Clube de Tiro / Instrutor</p>
-            <p style={{textAlign: 'center', fontSize: '10px', marginTop: '5px', color: '#7f8c8d'}}>Gerado via App Logbook de Tiro em {formatarData(obterDataHoje())}</p>
           </div>
           
           <div className="no-print" style={{display: 'flex', gap: '10px', marginTop: '15px'}}>
@@ -712,10 +1110,10 @@ export default function LogbookApp({ usuarioLogout }: LogbookAppProps) {
       )}
 
       <div className="no-print" style={styles.navBar}>
-        <button style={telaAtual === 'arsenal' ? styles.navBtnAtivo : styles.navBtn} onClick={() => setTelaAtual('arsenal')}>🔫 Acervo</button>
-        <button style={telaAtual === 'treino' ? styles.navBtnAtivo : styles.navBtn} onClick={() => setTelaAtual('treino')}>🎯 Treino</button>
-        <button style={telaAtual === 'relatorios' ? styles.navBtnAtivo : styles.navBtn} onClick={() => setTelaAtual('relatorios')}>📊 Logbook</button>
-        <button style={telaAtual === 'cac' ? styles.navBtnAtivo : styles.navBtn} onClick={() => setTelaAtual('cac')}>👤 CAC</button>
+        <button style={{flex: 1, border: 'none', background: 'none', color: telaAtual === 'arsenal' ? '#2980b9' : '#7f8c8d'}} onClick={() => setTelaAtual('arsenal')}>🔫 Acervo</button>
+        <button style={{flex: 1, border: 'none', background: 'none', color: telaAtual === 'treino' ? '#2980b9' : '#7f8c8d'}} onClick={() => setTelaAtual('treino')}>🎯 Treino</button>
+        <button style={{flex: 1, border: 'none', background: 'none', color: telaAtual === 'relatorios' ? '#2980b9' : '#7f8c8d'}} onClick={() => setTelaAtual('relatorios')}>📊 Logbook</button>
+        <button style={{flex: 1, border: 'none', background: 'none', color: telaAtual === 'cac' ? '#2980b9' : '#7f8c8d'}} onClick={() => setTelaAtual('cac')}>👤 CAC</button>
       </div>
     </div>
   );
