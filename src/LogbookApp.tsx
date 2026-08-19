@@ -152,15 +152,20 @@ export default function LogbookApp() {
   useEffect(() => { saveData('logbook_hab', relatoriosHabSalvos); }, [relatoriosHabSalvos]);
 
   const theme = {
-    bg: isDarkMode ? '#121212' : '#f4f4f9', cardBg: isDarkMode ? '#1e1e1e' : '#ffffff',
-    textMain: isDarkMode ? '#ecf0f1' : '#2c3e50', textSec: isDarkMode ? '#bdc3c7' : '#555',
-    inputBg: isDarkMode ? '#2c3e50' : '#ffffff', inputText: isDarkMode ? '#ecf0f1' : '#000000',
-    borderColor: isDarkMode ? '#34495e' : '#cccccc', navBg: isDarkMode ? '#1e1e1e' : '#ffffff',
-    cardRelatorioBg: isDarkMode ? '#2c3e50' : '#f8f9fa', caixaDiagBg: isDarkMode ? '#34495e' : '#e8f4f8',
-    itemBorder: isDarkMode ? '#333' : '#eee', caixaDiagText: isDarkMode ? '#ecf0f1' : '#2c3e50' 
+    bg: isDarkMode ? '#121212' : '#f4f4f9', 
+    cardBg: isDarkMode ? '#1e1e1e' : '#ffffff',
+    textMain: isDarkMode ? '#ecf0f1' : '#2c3e50', 
+    textSec: isDarkMode ? '#bdc3c7' : '#555',
+    inputBg: isDarkMode ? '#2c3e50' : '#ffffff', 
+    inputText: isDarkMode ? '#ecf0f1' : '#000000',
+    borderColor: isDarkMode ? '#34495e' : '#cccccc', 
+    navBg: isDarkMode ? '#1e1e1e' : '#ffffff',
+    cardRelatorioBg: isDarkMode ? '#2c3e50' : '#eaf2f8', 
+    caixaDiagBg: isDarkMode ? '#34495e' : '#d5e1ee',
+    itemBorder: isDarkMode ? '#34495e' : '#bdc3c7', 
+    caixaDiagText: isDarkMode ? '#ecf0f1' : '#2c3e50' 
   };
   
-  // States do Arsenal
   const [abaAcervo, setAbaAcervo] = useState<'pessoal' | 'clube'>('pessoal');
   const [novaArma, setNovaArma] = useState<any>({ marca: '', modelo: '', calibre: '', orgao: 'Sigma', craf: '', validadeCraf: '', gt: '', validadeGt: '', historicoManutencao: [] });
   const [armaEmEdicao, setArmaEmEdicao] = useState<number | null>(null);
@@ -168,12 +173,10 @@ export default function LogbookApp() {
   const [dataNovaManutencao, setDataNovaManutencao] = useState<string>(obterDataHoje());
   const [descNovaManutencao, setDescNovaManutencao] = useState<string>('');
   
-  // States do CAC
   const [editandoPerfil, setEditandoPerfil] = useState<boolean>(false);
   const [filtroHabInicio, setFiltroHabInicio] = useState<string>('');
   const [filtroHabFim, setFiltroHabFim] = useState<string>('');
   
-  // States de Treino
   const [sessaoEmEdicaoId, setSessaoEmEdicaoId] = useState<number | null>(null);
   const [tipoArmaTreino, setTipoArmaTreino] = useState<'acervo' | 'clube'>('acervo');
   const [armaSelecionada, setArmaSelecionada] = useState<string>('');
@@ -194,7 +197,6 @@ export default function LogbookApp() {
   const [marcacoes, setMarcacoes] = useState<Marcacao[]>([]);
   const [isAutoScanning, setIsAutoScanning] = useState<boolean>(false);
   
-  // States de Comparação & Filtros
   const [modoComparacao, setModoComparacao] = useState<boolean>(false);
   const [sessoesParaComparar, setSessoesParaComparar] = useState<any[]>([]);
   const [sessaoExpandida, setSessaoExpandida] = useState<number | null>(null);
@@ -267,7 +269,6 @@ export default function LogbookApp() {
     }
   };
 
-  // SCANNER OTIMIZADO: Contraste Local + Margem Rígida
   const escanearFuros = (img: HTMLImageElement) => {
     if (imagemAlvo === ALVO_CIRCULAR || imagemAlvo === ALVO_HUMANOIDE) return;
     
@@ -598,7 +599,7 @@ export default function LogbookApp() {
     const dispDiff = parseFloat(s2.dispersaoIndex) - parseFloat(s1.dispersaoIndex);
 
     let evolucaoScore = '';
-    if (scoreDiff > 0) evolucaoScore = `📈 Melhorou ${scoreDiff.toFixed(1)}% na pontuação.`;
+    if (scoreDiff > 0) evolucaoScore = `📈 Melhorou ${scoreDiff.toFixed(1)}% na zona de pontuação.`;
     else if (scoreDiff < 0) evolucaoScore = `📉 Caiu ${Math.abs(scoreDiff).toFixed(1)}% na pontuação.`;
     else evolucaoScore = `➖ Pontuação manteve-se idêntica.`;
 
@@ -983,10 +984,7 @@ export default function LogbookApp() {
                   </div>
 
                   {/* Laudo V1 Box */}
-                  <div 
-                    onClick={() => !modoComparacao && setSessaoExpandida(sessaoExpandida === sessao.id ? null : sessao.id)}
-                    style={{ backgroundColor: isDarkMode ? '#2c3e50' : '#eaf2f8', borderLeft: `3px solid #3498db`, padding: '10px', borderRadius: '4px', cursor: modoComparacao ? 'default' : 'pointer' }}
-                  >
+                  <div style={{ backgroundColor: isDarkMode ? '#2c3e50' : '#eaf2f8', borderLeft: `3px solid #3498db`, padding: '10px', borderRadius: '4px' }}>
                      <div style={{ textAlign: 'center', color: parseFloat(sessao.precisaoScore) > 70 ? '#f39c12' : '#e74c3c', fontWeight: 'bold', fontSize: '12px', marginBottom: '6px' }}>
                         Score de Precisão: {sessao.precisaoScore}%
                      </div>
@@ -994,7 +992,12 @@ export default function LogbookApp() {
                         <strong>Laudo Técnico:</strong> {(sessao.diagnosticos && sessao.diagnosticos.length > 0) ? sessao.diagnosticos.join(' ') : (sessao.diagnostico || 'Agrupamento consistente.')}
                      </div>
                      {!modoComparacao && (
-                        <div style={{fontSize: '9px', color: theme.textSec, textAlign: 'center', marginTop: '6px'}}>{sessaoExpandida === sessao.id ? '▲ Ocultar Alvo' : '▼ Ver Alvo e Opções'}</div>
+                        <div 
+                           onClick={() => setSessaoExpandida(sessaoExpandida === sessao.id ? null : sessao.id)}
+                           style={{fontSize: '10px', color: theme.textSec, textAlign: 'center', marginTop: '8px', cursor: 'pointer'}}
+                        >
+                           {sessaoExpandida === sessao.id ? '▲ Ocultar Alvo' : '▼ Ver Alvo e Opções'}
+                        </div>
                      )}
                   </div>
                   
