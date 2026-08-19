@@ -163,6 +163,7 @@ export default function LogbookApp() {
   const [abaAcervo, setAbaAcervo] = useState<'pessoal' | 'clube'>('pessoal');
   const [novaArma, setNovaArma] = useState<any>({ marca: '', modelo: '', calibre: '', orgao: 'Sigma', craf: '', validadeCraf: '', gt: '', validadeGt: '', historicoManutencao: [] });
   const [armaEmEdicao, setArmaEmEdicao] = useState<number | null>(null);
+  const [armaExpandida, setArmaExpandida] = useState<number | null>(null);
   const [mostrarCamposAvancados, setMostrarCamposAvancados] = useState<boolean>(false);
   const [dataNovaManutencao, setDataNovaManutencao] = useState<string>(obterDataHoje());
   const [descNovaManutencao, setDescNovaManutencao] = useState<string>('');
@@ -900,40 +901,35 @@ export default function LogbookApp() {
       {/* ABA LOGBOOK & COMPARAÇÃO */}
       {telaAtual === 'relatorios' && (
         <div className="no-print" style={styles.card}>
-          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `2px solid ${theme.borderColor}`, paddingBottom: '8px', marginBottom: '15px'}}>
-            <h3 style={{margin: 0}}>Logbook Analítico</h3>
-            <button onClick={() => { setModoComparacao(!modoComparacao); setSessoesParaComparar([]); }} style={{...styles.btnSecundario, width: 'auto', padding: '5px 10px', margin: 0, backgroundColor: modoComparacao ? '#e74c3c' : '#2980b9', color: 'white'}}>
-              {modoComparacao ? 'Cancelar Comparação' : '⚖️ Comparar'}
-            </button>
+          <div style={{display: 'flex', gap: '10px', marginBottom: '10px'}}>
+            <div style={{flex: 1}}><input type="date" style={{...styles.input, marginBottom: 0}} value={filtroDataInicioLogbook} onChange={e => setFiltroDataInicioLogbook(e.target.value)} /></div>
+            <div style={{flex: 1}}><input type="date" style={{...styles.input, marginBottom: 0}} value={filtroDataFimLogbook} onChange={e => setFiltroDataFimLogbook(e.target.value)} /></div>
+          </div>
+          
+          <div style={{display: 'flex', gap: '10px', marginBottom: '15px'}}>
+            <select style={{...styles.input, marginBottom: 0, flex: 2}} value={filtroArmaLogbook} onChange={e => setFiltroArmaLogbook(e.target.value)}>
+              <option value="">Todas as armas</option>
+              {Array.from(new Set(historicoSessoes.map((s:any) => s.armaId?.toString()))).map(id => {
+                const sRef = historicoSessoes.find((s:any) => s.armaId?.toString() === id);
+                return sRef ? <option key={id as string} value={id as string}>{sRef.armaNome} {sRef.tipoArmaTreino === 'clube' ? '(Clube)' : ''}</option> : null;
+              })}
+            </select>
+            <select style={{...styles.input, marginBottom: 0, flex: 1}} value={ordemLogbook} onChange={e => setOrdemLogbook(e.target.value)}>
+              <option value="padrao">Padrão</option>
+              <option value="data">Recente</option>
+              <option value="score">Score</option>
+            </select>
           </div>
 
-          <div style={{backgroundColor: theme.cardRelatorioBg, padding: '10px', borderRadius: '8px', marginBottom: '15px'}}>
-            <label style={{fontSize: '12px', fontWeight: 'bold'}}>Filtros e Ordenação:</label>
-            <div style={{display: 'flex', gap: '10px', marginTop: '5px', marginBottom: '8px'}}>
-              <select style={{...styles.input, marginBottom: 0, flex: 1}} value={filtroArmaLogbook} onChange={e => setFiltroArmaLogbook(e.target.value)}>
-                <option value="">Todas as Armas</option>
-                {Array.from(new Set(historicoSessoes.map((s:any) => s.armaId?.toString()))).map(id => {
-                  const sRef = historicoSessoes.find((s:any) => s.armaId?.toString() === id);
-                  return sRef ? <option key={id as string} value={id as string}>{sRef.armaNome} {sRef.tipoArmaTreino === 'clube' ? '(Clube)' : ''}</option> : null;
-                })}
-              </select>
-              <select style={{...styles.input, marginBottom: 0, flex: 1}} value={ordemLogbook} onChange={e => setOrdemLogbook(e.target.value)}>
-                <option value="padrao">Padrão (Data/Arma/Score)</option>
-                <option value="data">Data (Mais Recente)</option>
-                <option value="arma">Arma (A-Z)</option>
-                <option value="calibre">Calibre</option>
-                <option value="score">Pontuação (Maior p/ Menor)</option>
-              </select>
-            </div>
-            <div style={{display: 'flex', gap: '10px'}}>
-              <div style={{flex: 1}}><input type="date" style={{...styles.input, marginBottom: 0}} value={filtroDataInicioLogbook} onChange={e => setFiltroDataInicioLogbook(e.target.value)} /></div>
-              <div style={{flex: 1}}><input type="date" style={{...styles.input, marginBottom: 0}} value={filtroDataFimLogbook} onChange={e => setFiltroDataFimLogbook(e.target.value)} /></div>
-            </div>
-          </div>
+          <button onClick={() => { setModoComparacao(!modoComparacao); setSessoesParaComparar([]); }} style={{ width: '100%', padding: '12px', backgroundColor: '#9b59b6', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '15px', marginBottom: '20px' }}>
+            {modoComparacao ? 'Cancelar Comparação' : '⚖️ Comparar Períodos'}
+          </button>
+
+          <h3 style={{textAlign: 'center', borderBottom: `1px solid ${theme.itemBorder}`, paddingBottom: '10px', margin: '0 0 20px 0'}}>Sessões Salvas</h3>
 
           {modoComparacao && (
             <div style={{backgroundColor: '#fff3cd', padding: '10px', borderRadius: '8px', marginBottom: '15px', border: '1px solid #ffeeba', color: '#856404', fontSize: '13px', textAlign: 'center'}}>
-              Selecione 2 treinos abaixo para comparar o seu desempenho.
+              Selecione 2 treinos abaixo para comparar.
             </div>
           )}
 
@@ -947,7 +943,7 @@ export default function LogbookApp() {
                     <strong style={{display: 'block', fontSize: '13px', marginBottom: '5px'}}>{formatarData(s.data)}</strong>
                     <div style={{marginBottom: '10px'}}><RenderizarAlvo imagem={s.imagemOriginal} marcacoes={s.marcacoesSalvas} /></div>
                     <div style={{fontSize: '12px'}}>
-                      <p style={{margin: '2px 0'}}><strong>Arma:</strong> {s.armaNome} {s.tipoArmaTreino === 'clube' ? '(Clube)' : ''}</p>
+                      <p style={{margin: '2px 0'}}><strong>Arma:</strong> {s.armaNome}</p>
                       <p style={{margin: '2px 0'}}><strong>Calibre:</strong> {s.calibre}</p>
                       <p style={{margin: '2px 0'}}><strong>Distância:</strong> {s.distancia || 10}m</p>
                       <p style={{margin: '2px 0'}}><strong>Score:</strong> {s.precisaoScore}%</p>
@@ -958,39 +954,44 @@ export default function LogbookApp() {
             </div>
           )}
 
-          {sessoesLogbookFiltradas.length === 0 ? <p>Nenhum treino atende aos filtros.</p> : (
+          {sessoesLogbookFiltradas.length === 0 ? <p style={{textAlign: 'center'}}>Nenhum treino atende aos filtros.</p> : (
             sessoesLogbookFiltradas.map((sessao: any) => (
-              <div key={sessao.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
+              <div key={sessao.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '15px' }}>
                 {modoComparacao && (
-                  <input type="checkbox" checked={!!sessoesParaComparar.find(s => s.id === sessao.id)} onChange={() => toggleComparacao(sessao)} style={{width: '20px', height: '20px'}} />
+                  <input type="checkbox" checked={!!sessoesParaComparar.find(s => s.id === sessao.id)} onChange={() => toggleComparacao(sessao)} style={{width: '20px', height: '20px', marginTop: '15px'}} />
                 )}
-                <div style={{ flex: 1, backgroundColor: theme.cardRelatorioBg, borderRadius: '8px', padding: '12px', border: `1px solid ${theme.itemBorder}`, cursor: 'pointer' }} onClick={() => !modoComparacao && setSessaoExpandida(sessaoExpandida === sessao.id ? null : sessao.id)}>
-                  <div style={{display: 'flex', justifyContent: 'space-between', borderBottom: `1px solid ${theme.itemBorder}`, paddingBottom: '8px', marginBottom: '8px'}}>
-                    <div><strong>{formatarData(sessao.data)}</strong> <span style={{fontSize: '11px', color: theme.textSec, marginLeft: '5px'}}>({sessao.distancia || 10}m)</span></div>
-                    <span>Score: <strong style={{color: '#2980b9'}}>{sessao.precisaoScore}%</strong></span>
-                  </div>
-                  <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                
+                <div style={{ flex: 1, backgroundColor: theme.cardRelatorioBg, borderRadius: '8px', padding: '15px', border: `1px solid ${theme.itemBorder}`, cursor: 'pointer' }} onClick={() => !modoComparacao && setSessaoExpandida(sessaoExpandida === sessao.id ? null : sessao.id)}>
+                  
+                  {/* CARD V1 Layout */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                     <div>
-                      <strong>{sessao.armaNome}</strong> 
-                      {sessao.tipoArmaTreino === 'clube' && <span style={{fontSize:'10px', backgroundColor:'#e67e22', color:'white', padding:'2px 5px', borderRadius:'8px', marginLeft:'5px'}}>Clube</span>}
+                      <strong style={{ fontSize: '16px' }}>{formatarData(sessao.data)}</strong>
+                      <span style={{ fontSize: '12px', color: theme.textSec, marginLeft: '5px' }}>às {sessao.hora}</span>
                     </div>
-                    <div style={{fontSize: '13px'}}>{sessao.tirosDeclarados} tiros ({sessao.municao})</div>
+                    {sessao.habitualidade && <span style={{ backgroundColor: '#f39c12', color: 'white', padding: '4px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }}>Habitualidade</span>}
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                    <div style={{ fontSize: '14px' }}>
+                      <strong>{sessao.armaNome}</strong> <span style={{ fontSize: '11px', color: theme.textSec }}>({sessao.municao}) {sessao.tipoArmaTreino === 'clube' ? '[Clube]' : ''}</span>
+                    </div>
+                    <div style={{ fontSize: '13px' }}>Tiros: {sessao.tirosDeclarados}</div>
+                  </div>
+
+                  <div style={{ backgroundColor: isDarkMode ? '#2c3e50' : '#eaf2f8', borderLeft: `4px solid #3498db`, padding: '12px', borderRadius: '4px' }}>
+                     <div style={{ textAlign: 'center', color: '#e74c3c', fontWeight: 'bold', fontSize: '13px', marginBottom: '8px' }}>
+                        Score de Precisão: {sessao.precisaoScore}%
+                     </div>
+                     <div style={{ fontSize: '12px', textAlign: 'center', color: theme.textMain }}>
+                        <strong>Laudo Técnico:</strong> {(sessao.diagnosticos && sessao.diagnosticos.length > 0) ? sessao.diagnosticos.join(' ') : (sessao.diagnostico || 'Agrupamento consistente.')}
+                     </div>
                   </div>
                   
+                  {/* Expanded View */}
                   {sessaoExpandida === sessao.id && !modoComparacao && (
                     <div style={{marginTop: '15px', paddingTop: '15px', borderTop: `1px dashed ${theme.borderColor}`}}>
                       <RenderizarAlvo imagem={sessao.imagemOriginal} marcacoes={sessao.marcacoesSalvas} />
-                      
-                      {/* CAIXA DE ANÁLISE DETALHADA RESTAURADA */}
-                      {(sessao.diagnosticos && sessao.diagnosticos.length > 0) && (
-                        <div style={{ backgroundColor: theme.caixaDiagBg, padding: '12px', borderRadius: '8px', marginTop: '15px', border: `1px solid ${theme.borderColor}` }}>
-                          <h4 style={{ margin: '0 0 8px 0', fontSize: '13px', color: theme.caixaDiagText }}>🧠 Análise de Fundamentos</h4>
-                          <ul style={{ margin: 0, paddingLeft: '15px', fontSize: '12px', color: theme.textMain }}>
-                            {sessao.diagnosticos.map((d: string, i: number) => <li key={i} style={{marginBottom: '4px'}}>{d}</li>)}
-                          </ul>
-                        </div>
-                      )}
-
                       <div style={{display: 'flex', gap: '10px', marginTop: '15px'}}>
                         <button onClick={(e) => { e.stopPropagation(); editarSessao(sessao); }} style={{...styles.button, backgroundColor: '#f39c12', flex: 1}}>✏️ Editar</button>
                         <button onClick={(e) => { e.stopPropagation(); setHistoricoSessoes(historicoSessoes.filter((s:any) => s.id !== sessao.id)); }} style={{...styles.button, backgroundColor: '#e74c3c', flex: 1}}>🗑️ Apagar</button>
