@@ -52,7 +52,6 @@ const comprimirImagem = (file: File, callback: (base64: string) => void) => {
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        // Qualidade reduzida para 0.5 para garantir que os saves não estourem o limite da nuvem
         callback(canvas.toDataURL('image/jpeg', 0.5)); 
       }
     };
@@ -131,9 +130,6 @@ export default function LogbookApp() {
   const [historicoSessoes, setHistoricoSessoes] = useState<any[]>([]);
   const [relatoriosHabSalvos, setRelatoriosHabSalvos] = useState<any[]>([]);
 
-  // ==========================================
-  // LÓGICA DE SINCRONIZAÇÃO COM O FIRESTORE
-  // ==========================================
   useEffect(() => {
     const fetchBancoDeDados = async () => {
       const user = auth.currentUser;
@@ -149,7 +145,6 @@ export default function LogbookApp() {
           if (dados.logbook_perfil) setPerfil(dados.logbook_perfil);
           if (dados.logbook_armas) setArmas(dados.logbook_armas);
           
-          // Migração retroativa do clube para objetos
           if (dados.logbook_armas_clube) {
             setArmasClube(dados.logbook_armas_clube.map((item: any) => 
               typeof item === 'string' ? { id: Date.now() + Math.random(), marca: item, modelo: '', calibre: '9mm' } : item
@@ -158,7 +153,6 @@ export default function LogbookApp() {
           if (dados.logbook_sessoes) setHistoricoSessoes(dados.logbook_sessoes);
           if (dados.logbook_hab) setRelatoriosHabSalvos(dados.logbook_hab);
         } else {
-          // Cria o documento vazio do usuário na primeira vez
           await setDoc(userDocRef, {
             logbook_darkmode: false,
             logbook_perfil: { nome: 'Atirador', cr: '', validadeCr: '', clubeAfiliado: '' },
@@ -178,7 +172,6 @@ export default function LogbookApp() {
     fetchBancoDeDados();
   }, []);
 
-  // SyncHooks: Atualizam o Firestore silenciosamente sempre que os estados mudam
   useEffect(() => { if (!loadingDb && auth.currentUser) updateDoc(doc(db, 'usuarios', auth.currentUser.uid), { logbook_darkmode: isDarkMode }).catch(console.error); }, [isDarkMode, loadingDb]);
   useEffect(() => { if (!loadingDb && auth.currentUser) updateDoc(doc(db, 'usuarios', auth.currentUser.uid), { logbook_perfil: perfil }).catch(console.error); }, [perfil, loadingDb]);
   useEffect(() => { if (!loadingDb && auth.currentUser) updateDoc(doc(db, 'usuarios', auth.currentUser.uid), { logbook_armas: armas }).catch(console.error); }, [armas, loadingDb]);
@@ -187,17 +180,27 @@ export default function LogbookApp() {
   useEffect(() => { if (!loadingDb && auth.currentUser) updateDoc(doc(db, 'usuarios', auth.currentUser.uid), { logbook_hab: relatoriosHabSalvos }).catch(console.error); }, [relatoriosHabSalvos, loadingDb]);
 
   const theme = {
-    bg: isDarkMode ? '#121212' : '#f4f4f9', cardBg: isDarkMode ? '#1e1e1e' : '#ffffff',
-    textMain: isDarkMode ? '#ecf0f1' : '#2c3e50', textSec: isDarkMode ? '#bdc3c7' : '#555',
-    inputBg: isDarkMode ? '#2c3e50' : '#ffffff', inputText: isDarkMode ? '#ecf0f1' : '#000000',
-    borderColor: isDarkMode ? '#34495e' : '#cccccc', navBg: isDarkMode ? '#1e1e1e' : '#ffffff',
-    cardRelatorioBg: isDarkMode ? '#2c3e50' : '#eaf2f8', caixaDiagBg: isDarkMode ? '#34495e' : '#d5e1ee',
-    itemBorder: isDarkMode ? '#34495e' : '#bdc3c7', caixaDiagText: isDarkMode ? '#ecf0f1' : '#2c3e50' 
+    bg: isDarkMode ? '#121212' : '#f4f4f9', 
+    cardBg: isDarkMode ? '#1e1e1e' : '#ffffff',
+    textMain: isDarkMode ? '#ecf0f1' : '#2c3e50', 
+    textSec: isDarkMode ? '#bdc3c7' : '#555',
+    inputBg: isDarkMode ? '#2c3e50' : '#ffffff', 
+    inputText: isDarkMode ? '#ecf0f1' : '#000000',
+    borderColor: isDarkMode ? '#34495e' : '#cccccc', 
+    navBg: isDarkMode ? '#1e1e1e' : '#ffffff',
+    cardRelatorioBg: isDarkMode ? '#2c3e50' : '#eaf2f8', 
+    caixaDiagBg: isDarkMode ? '#34495e' : '#d5e1ee',
+    itemBorder: isDarkMode ? '#34495e' : '#bdc3c7', 
+    caixaDiagText: isDarkMode ? '#ecf0f1' : '#2c3e50' 
   };
   
   const [abaAcervo, setAbaAcervo] = useState<'pessoal' | 'clube'>('pessoal');
   const [novaArma, setNovaArma] = useState<any>({ marca: '', modelo: '', calibre: '', orgao: 'Sigma', craf: '', validadeCraf: '', gt: '', validadeGt: '', historicoManutencao: [] });
   const [armaEmEdicao, setArmaEmEdicao] = useState<number | null>(null);
+  
+  // ESTADO QUE CONTROLA A SANFONA DAS ARMAS
+  const [armaExpandida, setArmaExpandida] = useState<number | null>(null);
+  
   const [mostrarCamposAvancados, setMostrarCamposAvancados] = useState<boolean>(false);
   const [dataNovaManutencao, setDataNovaManutencao] = useState<string>(obterDataHoje());
   const [descNovaManutencao, setDescNovaManutencao] = useState<string>('');
@@ -759,11 +762,16 @@ export default function LogbookApp() {
             <ul style={{ listStyleType: 'none', padding: 0, margin: 0 }}>
               {(abaAcervo === 'pessoal' ? armas : armasClube).map((a: any) => {
                 const stats = calcularTirosArma(a.id, abaAcervo === 'clube');
+                const isExpanded = armaExpandida === a.id;
                 
                 return (
-                  <li key={a.id} style={{ backgroundColor: theme.cardRelatorioBg, padding: '12px', borderRadius: '8px', marginBottom: '12px', border: `1px solid ${theme.itemBorder}` }}>
+                  <li 
+                    key={a.id} 
+                    style={{ backgroundColor: theme.cardRelatorioBg, padding: '12px', borderRadius: '8px', marginBottom: '12px', border: `1px solid ${theme.itemBorder}`, cursor: 'pointer' }} 
+                    onClick={() => setArmaExpandida(isExpanded ? null : a.id)}
+                  >
                     
-                    {/* Header do Card (V1 Style) */}
+                    {/* Header do Card (V1 Style Compacto) */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                        <div>
                           <strong style={{ fontSize: '14px', display: 'block', color: theme.textMain }}>{a.marca} {a.modelo}</strong>
@@ -773,66 +781,73 @@ export default function LogbookApp() {
                           </div>
                        </div>
                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <button onClick={() => editarArma(a)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', padding: 0 }}>✏️</button>
-                          <button onClick={() => excluirArma(a.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', padding: 0 }}>🗑️</button>
+                          <button onClick={(e) => { e.stopPropagation(); editarArma(a); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', padding: 0 }}>✏️</button>
+                          <button onClick={(e) => { e.stopPropagation(); excluirArma(a.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', padding: 0 }}>🗑️</button>
                        </div>
                     </div>
 
-                    <div style={{ marginTop: '5px' }}>
-                      {/* Documentos (Apenas Pessoal) */}
-                      {abaAcervo === 'pessoal' && (
-                        <div style={{ backgroundColor: isDarkMode ? '#2c3e50' : '#e2e8f0', padding: '10px', borderRadius: '6px', margin: '8px 0', fontSize: '12px' }}>
-                           <p style={{margin: '0 0 4px 0', fontWeight: 'bold', color: theme.textMain}}>CRAF: <span style={{fontWeight: 'normal'}}>{a.craf || 'Não inf.'} {a.validadeCraf ? ` (Val: ${formatarData(a.validadeCraf)})` : ''}</span></p>
-                           <p style={{margin: 0, fontWeight: 'bold', color: theme.textMain}}>GT: <span style={{fontWeight: 'normal'}}>{a.gt || 'Não inf.'} {a.validadeGt ? ` (Val: ${formatarData(a.validadeGt)})` : ''}</span></p>
-                        </div>
-                      )}
-
-                      <div style={{ borderTop: `1px dashed ${theme.borderColor}`, margin: '12px 0' }} />
-
-                      {/* Consumo de Munição (Blocos V1) */}
-                      <div style={{ textAlign: 'center', marginBottom: '12px' }}>
-                        <strong style={{ fontSize: '12px', color: theme.textMain, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>📊 Consumo de Munição</strong>
-                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', marginTop: '8px' }}>
-                           <div style={{ flex: 1, border: `1px solid ${isDarkMode ? '#3498db' : '#2980b9'}`, padding: '4px 0', borderRadius: '4px', fontSize: '10px', color: theme.textMain, backgroundColor: isDarkMode ? '#1e2b3c' : '#eaf2f8' }}>Orig.: {stats.porMunicao['Original'] || 0}</div>
-                           <div style={{ flex: 1, border: `1px solid ${isDarkMode ? '#f39c12' : '#d35400'}`, padding: '4px 0', borderRadius: '4px', fontSize: '10px', color: theme.textMain, backgroundColor: isDarkMode ? '#3d2e1b' : '#fef5e7' }}>Recarg.: {stats.porMunicao['Recarregada'] || 0}</div>
-                           <div style={{ flex: 1, border: `1px solid ${isDarkMode ? '#e74c3c' : '#c0392b'}`, padding: '4px 0', borderRadius: '4px', fontSize: '10px', color: theme.textMain, backgroundColor: isDarkMode ? '#3b2222' : '#fdedec' }}>Dry Fire: {stats.porMunicao['Dry Fire'] || 0}</div>
-                        </div>
+                    {/* Documentos visíveis por padrão (Apenas Pessoal) */}
+                    {abaAcervo === 'pessoal' && (
+                      <div style={{ backgroundColor: isDarkMode ? '#2c3e50' : '#e2e8f0', padding: '10px', borderRadius: '6px', margin: '8px 0', fontSize: '12px' }}>
+                         <p style={{margin: '0 0 4px 0', fontWeight: 'bold', color: theme.textMain}}>CRAF: <span style={{fontWeight: 'normal'}}>{a.craf || 'Não inf.'} {a.validadeCraf ? ` (Val: ${formatarData(a.validadeCraf)})` : ''}</span></p>
+                         <p style={{margin: 0, fontWeight: 'bold', color: theme.textMain}}>GT: <span style={{fontWeight: 'normal'}}>{a.gt || 'Não inf.'} {a.validadeGt ? ` (Val: ${formatarData(a.validadeGt)})` : ''}</span></p>
                       </div>
+                    )}
+                    
+                    {/* Seta indicativa de expansão */}
+                    {!isExpanded && <div style={{textAlign: 'center', color: theme.textSec, fontSize: '10px', marginTop: '5px'}}>▼ Clique para expandir detalhes</div>}
+                    {isExpanded && <div style={{textAlign: 'center', color: theme.textSec, fontSize: '10px', marginTop: '5px'}}>▲ Clique para recolher</div>}
 
-                      {/* Controle de Manutenção (Apenas Pessoal) */}
-                      {abaAcervo === 'pessoal' && (
-                        <>
-                          <div style={{ borderTop: `1px dashed ${theme.borderColor}`, margin: '12px 0' }} />
-                          <div style={{ textAlign: 'center', marginBottom: '10px' }}>
-                            <strong style={{ fontSize: '12px', color: theme.textMain, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>🛠️ Controle de Manutenção</strong>
+                    {/* Conteúdo Expandido (A Sanfona) */}
+                    {isExpanded && (
+                      <div style={{ marginTop: '5px', cursor: 'default' }} onClick={e => e.stopPropagation()}>
+                        <div style={{ borderTop: `1px dashed ${theme.borderColor}`, margin: '12px 0' }} />
+
+                        {/* Consumo de Munição (Blocos V1) */}
+                        <div style={{ textAlign: 'center', marginBottom: '12px' }}>
+                          <strong style={{ fontSize: '12px', color: theme.textMain, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>📊 Consumo de Munição</strong>
+                          <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', marginTop: '8px' }}>
+                             <div style={{ flex: 1, border: `1px solid ${isDarkMode ? '#3498db' : '#2980b9'}`, padding: '4px 0', borderRadius: '4px', fontSize: '10px', color: theme.textMain, backgroundColor: isDarkMode ? '#1e2b3c' : '#eaf2f8' }}>Orig.: {stats.porMunicao['Original'] || 0}</div>
+                             <div style={{ flex: 1, border: `1px solid ${isDarkMode ? '#f39c12' : '#d35400'}`, padding: '4px 0', borderRadius: '4px', fontSize: '10px', color: theme.textMain, backgroundColor: isDarkMode ? '#3d2e1b' : '#fef5e7' }}>Recarg.: {stats.porMunicao['Recarregada'] || 0}</div>
+                             <div style={{ flex: 1, border: `1px solid ${isDarkMode ? '#e74c3c' : '#c0392b'}`, padding: '4px 0', borderRadius: '4px', fontSize: '10px', color: theme.textMain, backgroundColor: isDarkMode ? '#3b2222' : '#fdedec' }}>Dry Fire: {stats.porMunicao['Dry Fire'] || 0}</div>
                           </div>
+                        </div>
 
-                          <div style={{ backgroundColor: isDarkMode ? '#2c3e50' : '#d5e1ee', padding: '6px 10px', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span style={{ fontSize: '12px', fontWeight: 'bold', color: theme.textMain }}>Limpeza:</span>
-                              <input type="date" style={{ padding: '4px', borderRadius: '4px', border: 'none', fontSize: '11px', backgroundColor: isDarkMode ? '#1a252f' : '#fff', color: theme.textMain, outline: 'none' }} value={dataNovaManutencao} onChange={e => setDataNovaManutencao(e.target.value)} />
+                        {/* Controle de Manutenção (Apenas Pessoal) */}
+                        {abaAcervo === 'pessoal' && (
+                          <>
+                            <div style={{ borderTop: `1px dashed ${theme.borderColor}`, margin: '12px 0' }} />
+                            <div style={{ textAlign: 'center', marginBottom: '10px' }}>
+                              <strong style={{ fontSize: '12px', color: theme.textMain, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>🛠️ Controle de Manutenção</strong>
                             </div>
-                            <button onClick={() => registrarLimpeza(a.id)} style={{ background: 'none', border: 'none', color: isDarkMode ? '#ecf0f1' : '#2980b9', fontWeight: 'bold', fontSize: '11px', cursor: 'pointer' }}>Limpei Hoje</button>
-                          </div>
-                          {a.dataUltimaLimpeza && <p style={{ fontSize: '10px', margin: '-4px 0 10px 0', color: '#27ae60', textAlign: 'center' }}>Última limpeza: {formatarData(a.dataUltimaLimpeza)}</p>}
 
-                          <div style={{ display: 'flex', gap: '5px', marginBottom: '8px' }}>
-                             <input type="date" style={{...styles.input, marginBottom: 0, padding: '6px', fontSize: '11px', flex: 1}} value={dataNovaManutencao} onChange={e => setDataNovaManutencao(e.target.value)} />
-                             <input type="text" placeholder="Ex: Troca de mola" style={{...styles.input, marginBottom: 0, padding: '6px', fontSize: '11px', flex: 2}} value={descNovaManutencao} onChange={e => setDescNovaManutencao(e.target.value)} />
-                             <button onClick={() => adicionarManutencao(a.id)} style={{backgroundColor: '#2980b9', color: 'white', border: 'none', borderRadius: '6px', padding: '0 12px', fontSize: '11px', cursor: 'pointer', fontWeight: 'bold'}}>Add</button>
-                          </div>
-                          
-                          <ul style={{listStyle: 'none', padding: 0, margin: 0, fontSize: '11px', maxHeight: '100px', overflowY: 'auto'}}>
-                            {(a.historicoManutencao || []).map((m: any, idx: number) => (
-                              <li key={idx} style={{display: 'flex', justifyContent: 'space-between', borderBottom: `1px solid ${theme.itemBorder}`, padding: '4px 0', color: theme.textMain}}>
-                                <span><strong>{formatarData(m.data)}:</strong> {m.descricao}</span>
-                                <button onClick={() => excluirManutencao(a.id, idx)} style={{background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer'}}>✖</button>
-                              </li>
-                            ))}
-                          </ul>
-                        </>
-                      )}
-                    </div>
+                            <div style={{ backgroundColor: isDarkMode ? '#2c3e50' : '#d5e1ee', padding: '6px 10px', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '12px', fontWeight: 'bold', color: theme.textMain }}>Limpeza:</span>
+                                <input type="date" style={{ padding: '4px', borderRadius: '4px', border: 'none', fontSize: '11px', backgroundColor: isDarkMode ? '#1a252f' : '#fff', color: theme.textMain, outline: 'none' }} value={dataNovaManutencao} onChange={e => setDataNovaManutencao(e.target.value)} />
+                              </div>
+                              <button onClick={() => registrarLimpeza(a.id)} style={{ background: 'none', border: 'none', color: isDarkMode ? '#ecf0f1' : '#2980b9', fontWeight: 'bold', fontSize: '11px', cursor: 'pointer' }}>Limpei Hoje</button>
+                            </div>
+                            {a.dataUltimaLimpeza && <p style={{ fontSize: '10px', margin: '-4px 0 10px 0', color: '#27ae60', textAlign: 'center' }}>Última limpeza: {formatarData(a.dataUltimaLimpeza)}</p>}
+
+                            <div style={{ display: 'flex', gap: '5px', marginBottom: '8px' }}>
+                               <input type="date" style={{...styles.input, marginBottom: 0, padding: '6px', fontSize: '11px', flex: 1}} value={dataNovaManutencao} onChange={e => setDataNovaManutencao(e.target.value)} />
+                               <input type="text" placeholder="Ex: Troca de mola" style={{...styles.input, marginBottom: 0, padding: '6px', fontSize: '11px', flex: 2}} value={descNovaManutencao} onChange={e => setDescNovaManutencao(e.target.value)} />
+                               <button onClick={() => adicionarManutencao(a.id)} style={{backgroundColor: '#2980b9', color: 'white', border: 'none', borderRadius: '6px', padding: '0 12px', fontSize: '11px', cursor: 'pointer', fontWeight: 'bold'}}>Add</button>
+                            </div>
+                            
+                            <ul style={{listStyle: 'none', padding: 0, margin: 0, fontSize: '11px', maxHeight: '100px', overflowY: 'auto'}}>
+                              {(a.historicoManutencao || []).map((m: any, idx: number) => (
+                                <li key={idx} style={{display: 'flex', justifyContent: 'space-between', borderBottom: `1px solid ${theme.itemBorder}`, padding: '4px 0', color: theme.textMain}}>
+                                  <span><strong>{formatarData(m.data)}:</strong> {m.descricao}</span>
+                                  <button onClick={() => excluirManutencao(a.id, idx)} style={{background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer'}}>✖</button>
+                                </li>
+                              ))}
+                            </ul>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </li>
                 );
               })}
