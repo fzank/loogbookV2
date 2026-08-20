@@ -3,7 +3,7 @@ import { auth, googleProvider } from './firebase';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
-  signInWithPopup,
+  signInWithRedirect, // <-- Alterado aqui
   onAuthStateChanged,
   type User 
 } from 'firebase/auth';
@@ -14,10 +14,11 @@ export default function App() {
   const [carregando, setCarregando] = useState(true);
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
-  const [modoCadastro] = useState(false); // Corrigido TS6133
+  const [modoCadastro] = useState(false);
   const [erro, setErro] = useState('');
 
   useEffect(() => {
+    // O onAuthStateChanged vai detectar automaticamente quando o usuário voltar do redirecionamento do Google
     const unsubscribe = onAuthStateChanged(auth, (user) => { 
       setUsuario(user); 
       setCarregando(false); 
@@ -37,8 +38,13 @@ export default function App() {
   };
 
   const loginComGoogle = async () => {
-    try { await signInWithPopup(auth, googleProvider); } 
-    catch (error) { setErro('Erro ao fazer login com o Google.'); }
+    try { 
+      // Em vez de popup, usamos o Redirecionamento (Ignora bloqueios de COOP)
+      await signInWithRedirect(auth, googleProvider); 
+    } 
+    catch (error) { 
+      setErro('Erro ao fazer login com o Google.'); 
+    }
   };
 
   if (carregando) return <div style={{textAlign: 'center', marginTop: '50px'}}>Carregando...</div>;
@@ -50,13 +56,13 @@ export default function App() {
   return (
     <div style={{ fontFamily: 'system-ui', padding: '20px', maxWidth: '400px', margin: '50px auto' }}>
       <h2 style={{ textAlign: 'center' }}>🎯 Logbook v2.0</h2>
-      {erro && <div style={{ color: 'red', textAlign: 'center' }}>{erro}</div>}
+      {erro && <div style={{ color: 'red', textAlign: 'center', marginBottom: '10px' }}>{erro}</div>}
       <form onSubmit={lidarComAutenticacao}>
-        <input type="email" placeholder="E-mail" value={email} onChange={e => setEmail(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '10px' }} />
-        <input type="password" placeholder="Senha" value={senha} onChange={e => setSenha(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '10px' }} />
-        <button type="submit" style={{ width: '100%', padding: '10px' }}>{modoCadastro ? 'Criar Conta' : 'Entrar'}</button>
+        <input type="email" placeholder="E-mail" value={email} onChange={e => setEmail(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '6px', border: '1px solid #ccc' }} />
+        <input type="password" placeholder="Senha" value={senha} onChange={e => setSenha(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '6px', border: '1px solid #ccc' }} />
+        <button type="submit" style={{ width: '100%', padding: '10px', backgroundColor: '#2c3e50', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>{modoCadastro ? 'Criar Conta' : 'Entrar'}</button>
       </form>
-      <button onClick={loginComGoogle} style={{ width: '100%', padding: '10px', marginTop: '10px' }}>Entrar com Google</button>
+      <button onClick={loginComGoogle} style={{ width: '100%', padding: '10px', marginTop: '10px', backgroundColor: '#2980b9', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Entrar com Google</button>
     </div>
   );
 }
