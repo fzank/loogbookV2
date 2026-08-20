@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { auth } from './firebase';
+import { auth, db } from './firebase';
 import { signOut } from 'firebase/auth';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 
 const ALVO_CIRCULAR: string = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23e0e0e0'/%3E%3Ccircle cx='50' cy='50' r='45' fill='white' stroke='black' stroke-width='1'/%3E%3Ccircle cx='50' cy='50' r='35' fill='white' stroke='black' stroke-width='1'/%3E%3Ccircle cx='50' cy='50' r='25' fill='white' stroke='black' stroke-width='1'/%3E%3Ccircle cx='50' cy='50' r='15' fill='black'/%3E%3Ccircle cx='50' cy='50' r='5' fill='none' stroke='white' stroke-width='1'/%3E%3C/svg%3E";
 const ALVO_HUMANOIDE: string = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%232c3e50'/%3E%3Cpath d='M 40 5 C 40 2, 60 2, 60 5 L 60 18 C 75 18, 85 25, 85 40 L 80 100 L 20 100 L 15 40 C 15 25, 25 18, 40 18 Z' fill='%23ecf0f1'/%3E%3Cpath d='M 20 80 Q 50 90 80 80' fill='none' stroke='%23bdc3c7' stroke-width='0.5'/%3E%3Cpath d='M 15 60 Q 50 75 85 60' fill='none' stroke='%23bdc3c7' stroke-width='0.5'/%3E%3Cpath d='M 25 35 Q 50 50 75 35' fill='none' stroke='%23bdc3c7' stroke-width='0.5'/%3E%3Ccircle cx='50' cy='45' r='8' fill='none' stroke='%23bdc3c7' stroke-width='0.5'/%3E%3Ccircle cx='50' cy='12' r='3' fill='none' stroke='%23bdc3c7' stroke-width='0.5'/%3E%3C/svg%3E";
@@ -34,18 +35,6 @@ const verificarValidade = (dataValidade: string) => {
   return { status: 'regular', cor: '#27ae60', texto: 'Regular' };
 };
 
-const loadData = (key: string, defaultData: any) => {
-  try {
-    const item = localStorage.getItem(key);
-    return item ? JSON.parse(item) : defaultData;
-  } catch (error) { return defaultData; }
-};
-
-const saveData = (key: string, data: any) => {
-  try { localStorage.setItem(key, JSON.stringify(data)); } 
-  catch (error: any) { if (error.name === 'QuotaExceededError') alert("⚠️ A memória local está cheia!"); }
-};
-
 const comprimirImagem = (file: File, callback: (base64: string) => void) => {
   const reader = new FileReader();
   reader.readAsDataURL(file);
@@ -63,7 +52,8 @@ const comprimirImagem = (file: File, callback: (base64: string) => void) => {
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        callback(canvas.toDataURL('image/jpeg', 0.6)); 
+        // Qualidade reduzida para 0.5 para garantir que os saves não estourem o limite da nuvem
+        callback(canvas.toDataURL('image/jpeg', 0.5)); 
       }
     };
   };
@@ -131,39 +121,78 @@ const RenderizarAlvo: React.FC<RenderizarAlvoProps> = ({ imagem, marcacoes, onTa
 );
 
 export default function LogbookApp() {
+  const [loadingDb, setLoadingDb] = useState(true);
+  
   const [telaAtual, setTelaAtual] = useState<string>('arsenal');
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => loadData('logbook_darkmode', false));
-  const [perfil, setPerfil] = useState(() => loadData('logbook_perfil', { nome: 'Atirador', cr: '', validadeCr: '', clubeAfiliado: '' }));
-  const [armas, setArmas] = useState(() => loadData('logbook_armas', []));
-  
-  const [armasClube, setArmasClube] = useState<any[]>(() => {
-    const saved = loadData('logbook_armas_clube', []);
-    return saved.map((item: any) => typeof item === 'string' ? { id: Date.now() + Math.random(), marca: item, modelo: '', calibre: '9mm' } : item);
-  });
-  
-  const [historicoSessoes, setHistoricoSessoes] = useState(() => loadData('logbook_sessoes', []));
-  const [relatoriosHabSalvos, setRelatoriosHabSalvos] = useState(() => loadData('logbook_hab', []));
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
+  const [perfil, setPerfil] = useState<any>({ nome: 'Atirador', cr: '', validadeCr: '', clubeAfiliado: '' });
+  const [armas, setArmas] = useState<any[]>([]);
+  const [armasClube, setArmasClube] = useState<any[]>([]);
+  const [historicoSessoes, setHistoricoSessoes] = useState<any[]>([]);
+  const [relatoriosHabSalvos, setRelatoriosHabSalvos] = useState<any[]>([]);
 
-  useEffect(() => { saveData('logbook_darkmode', isDarkMode); }, [isDarkMode]);
-  useEffect(() => { saveData('logbook_perfil', perfil); }, [perfil]);
-  useEffect(() => { saveData('logbook_armas', armas); }, [armas]);
-  useEffect(() => { saveData('logbook_armas_clube', armasClube); }, [armasClube]);
-  useEffect(() => { saveData('logbook_sessoes', historicoSessoes); }, [historicoSessoes]);
-  useEffect(() => { saveData('logbook_hab', relatoriosHabSalvos); }, [relatoriosHabSalvos]);
+  // ==========================================
+  // LÓGICA DE SINCRONIZAÇÃO COM O FIRESTORE
+  // ==========================================
+  useEffect(() => {
+    const fetchBancoDeDados = async () => {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      try {
+        const userDocRef = doc(db, 'usuarios', user.uid);
+        const docSnap = await getDoc(userDocRef);
+
+        if (docSnap.exists()) {
+          const dados = docSnap.data();
+          if (dados.logbook_darkmode !== undefined) setIsDarkMode(dados.logbook_darkmode);
+          if (dados.logbook_perfil) setPerfil(dados.logbook_perfil);
+          if (dados.logbook_armas) setArmas(dados.logbook_armas);
+          
+          // Migração retroativa do clube para objetos
+          if (dados.logbook_armas_clube) {
+            setArmasClube(dados.logbook_armas_clube.map((item: any) => 
+              typeof item === 'string' ? { id: Date.now() + Math.random(), marca: item, modelo: '', calibre: '9mm' } : item
+            ));
+          }
+          if (dados.logbook_sessoes) setHistoricoSessoes(dados.logbook_sessoes);
+          if (dados.logbook_hab) setRelatoriosHabSalvos(dados.logbook_hab);
+        } else {
+          // Cria o documento vazio do usuário na primeira vez
+          await setDoc(userDocRef, {
+            logbook_darkmode: false,
+            logbook_perfil: { nome: 'Atirador', cr: '', validadeCr: '', clubeAfiliado: '' },
+            logbook_armas: [],
+            logbook_armas_clube: [],
+            logbook_sessoes: [],
+            logbook_hab: []
+          });
+        }
+      } catch (error) {
+        console.error("Erro ao puxar dados do Firestore:", error);
+      } finally {
+        setLoadingDb(false);
+      }
+    };
+
+    fetchBancoDeDados();
+  }, []);
+
+  // SyncHooks: Atualizam o Firestore silenciosamente sempre que os estados mudam
+  useEffect(() => { if (!loadingDb && auth.currentUser) updateDoc(doc(db, 'usuarios', auth.currentUser.uid), { logbook_darkmode: isDarkMode }).catch(console.error); }, [isDarkMode, loadingDb]);
+  useEffect(() => { if (!loadingDb && auth.currentUser) updateDoc(doc(db, 'usuarios', auth.currentUser.uid), { logbook_perfil: perfil }).catch(console.error); }, [perfil, loadingDb]);
+  useEffect(() => { if (!loadingDb && auth.currentUser) updateDoc(doc(db, 'usuarios', auth.currentUser.uid), { logbook_armas: armas }).catch(console.error); }, [armas, loadingDb]);
+  useEffect(() => { if (!loadingDb && auth.currentUser) updateDoc(doc(db, 'usuarios', auth.currentUser.uid), { logbook_armas_clube: armasClube }).catch(console.error); }, [armasClube, loadingDb]);
+  useEffect(() => { if (!loadingDb && auth.currentUser) updateDoc(doc(db, 'usuarios', auth.currentUser.uid), { logbook_sessoes: historicoSessoes }).catch(console.error); }, [historicoSessoes, loadingDb]);
+  useEffect(() => { if (!loadingDb && auth.currentUser) updateDoc(doc(db, 'usuarios', auth.currentUser.uid), { logbook_hab: relatoriosHabSalvos }).catch(console.error); }, [relatoriosHabSalvos, loadingDb]);
 
   const theme = {
-    bg: isDarkMode ? '#121212' : '#f4f4f9', 
-    cardBg: isDarkMode ? '#1e1e1e' : '#ffffff',
-    textMain: isDarkMode ? '#ecf0f1' : '#2c3e50', 
-    textSec: isDarkMode ? '#bdc3c7' : '#555',
-    inputBg: isDarkMode ? '#2c3e50' : '#ffffff', 
-    inputText: isDarkMode ? '#ecf0f1' : '#000000',
-    borderColor: isDarkMode ? '#34495e' : '#cccccc', 
-    navBg: isDarkMode ? '#1e1e1e' : '#ffffff',
-    cardRelatorioBg: isDarkMode ? '#2c3e50' : '#eaf2f8', 
-    caixaDiagBg: isDarkMode ? '#34495e' : '#d5e1ee',
-    itemBorder: isDarkMode ? '#34495e' : '#bdc3c7', 
-    caixaDiagText: isDarkMode ? '#ecf0f1' : '#2c3e50' 
+    bg: isDarkMode ? '#121212' : '#f4f4f9', cardBg: isDarkMode ? '#1e1e1e' : '#ffffff',
+    textMain: isDarkMode ? '#ecf0f1' : '#2c3e50', textSec: isDarkMode ? '#bdc3c7' : '#555',
+    inputBg: isDarkMode ? '#2c3e50' : '#ffffff', inputText: isDarkMode ? '#ecf0f1' : '#000000',
+    borderColor: isDarkMode ? '#34495e' : '#cccccc', navBg: isDarkMode ? '#1e1e1e' : '#ffffff',
+    cardRelatorioBg: isDarkMode ? '#2c3e50' : '#eaf2f8', caixaDiagBg: isDarkMode ? '#34495e' : '#d5e1ee',
+    itemBorder: isDarkMode ? '#34495e' : '#bdc3c7', caixaDiagText: isDarkMode ? '#ecf0f1' : '#2c3e50' 
   };
   
   const [abaAcervo, setAbaAcervo] = useState<'pessoal' | 'clube'>('pessoal');
@@ -210,7 +239,7 @@ export default function LogbookApp() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (telaAtual === 'treino' && !sessaoEmEdicaoId) {
+    if (telaAtual === 'treino' && !sessaoEmEdicaoId && !loadingDb) {
       if (historicoSessoes.length > 0) {
         const ultima = historicoSessoes[0];
         setTipoArmaTreino(ultima.tipoArmaTreino || 'acervo');
@@ -222,7 +251,7 @@ export default function LogbookApp() {
         setArmaSelecionada(armas[0].id.toString());
       }
     }
-  }, [telaAtual, sessaoEmEdicaoId, historicoSessoes, armas]);
+  }, [telaAtual, sessaoEmEdicaoId, historicoSessoes, armas, loadingDb]);
 
   useEffect(() => {
     if (!sessaoEmEdicaoId && (imagemAlvo === ALVO_CIRCULAR || imagemAlvo === ALVO_HUMANOIDE)) {
@@ -231,6 +260,17 @@ export default function LogbookApp() {
       setQtdTiros('');
     }
   }, [tipoAlvoPadrao, sessaoEmEdicaoId]);
+
+  if (loadingDb) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#f4f4f9', color: '#2c3e50', fontFamily: 'system-ui' }}>
+        <h2 style={{margin: '0 0 15px 0'}}>🎯 Logbook v2.0</h2>
+        <div style={{ padding: '15px 30px', backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', fontWeight: 'bold' }}>
+          ☁️ Sincronizando com a Nuvem...
+        </div>
+      </div>
+    );
+  }
 
   const adicionarNovaArmaClube = () => {
     if (!novaArmaClubeMarca.trim() || !novaArmaClubeCalibre) return alert("Preencha a Marca e o Calibre.");
