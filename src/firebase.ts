@@ -1,17 +1,21 @@
-// Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
 
-// Your web app's Firebase configuration
+// Suas novas chaves do Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyCvolSsSxwZRLKUOTaB1w6o9jMdR-m3uL0",
-  authDomain: "logbook-de-tiro.firebaseapp.com",
+  authDomain: "logbook-de-tiro.firebaseapp.com", 
   projectId: "logbook-de-tiro",
   storageBucket: "logbook-de-tiro.firebasestorage.app",
   messagingSenderId: "1042557557631",
   appId: "1:1042557557631:web:ca5eb8b0ff4baafdd5584a"
 };
 
-// Initialize Firebase
+// Inicializa o Firebase
 const app = initializeApp(firebaseConfig);
+
+// Exporta as ferramentas para o App e LogbookApp conseguirem usar (Isso estava faltando!)
+export const auth = getAuth(app);
+export const googleProvider = new GoogleAuthProvider();
+export const db = getFirestore(app);
