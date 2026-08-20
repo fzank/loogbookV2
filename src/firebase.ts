@@ -4,7 +4,7 @@ import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCvolSsSxwZRLKUOTaB1w6o9jMdR-m3uL0",
-  authDomain: "logbook-de-tiro.firebaseapp.com",
+  authDomain: "logbook-de-tiro.web.app", // <-- A SOLUÇÃO ESTÁ AQUI: Trocamos firebaseapp.com por web.app
   projectId: "logbook-de-tiro",
   storageBucket: "logbook-de-tiro.firebasestorage.app",
   messagingSenderId: "1042557557631",
