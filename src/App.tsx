@@ -3,7 +3,7 @@ import { auth, googleProvider } from './firebase';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
-  signInWithRedirect, // <-- Alterado aqui
+  signInWithPopup, 
   onAuthStateChanged,
   type User 
 } from 'firebase/auth';
@@ -18,7 +18,6 @@ export default function App() {
   const [erro, setErro] = useState('');
 
   useEffect(() => {
-    // O onAuthStateChanged vai detectar automaticamente quando o usuário voltar do redirecionamento do Google
     const unsubscribe = onAuthStateChanged(auth, (user) => { 
       setUsuario(user); 
       setCarregando(false); 
@@ -39,11 +38,11 @@ export default function App() {
 
   const loginComGoogle = async () => {
     try { 
-      // Em vez de popup, usamos o Redirecionamento (Ignora bloqueios de COOP)
-      await signInWithRedirect(auth, googleProvider); 
+      await signInWithPopup(auth, googleProvider); 
     } 
     catch (error) { 
       setErro('Erro ao fazer login com o Google.'); 
+      console.error(error);
     }
   };
 
