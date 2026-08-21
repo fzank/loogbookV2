@@ -53,7 +53,7 @@ export default function App() {
 
   if (carregando) {
     return (
-      <div style={{ textAlign: 'center', marginTop: '50px', fontFamily: 'system-ui' }}>
+      <div style={{ textAlign: 'center', marginTop: '50px', fontFamily: 'system-ui', fontSize: '14px' }}>
         Carregando autenticação...
       </div>
     );
@@ -64,11 +64,11 @@ export default function App() {
   }
 
   return (
-    <div style={{ fontFamily: 'system-ui', padding: '20px', maxWidth: '400px', margin: '50px auto' }}>
-      <h2 style={{ textAlign: 'center', marginBottom: '20px' }}>🎯 Logbook v2.0</h2>
+    <div style={{ fontFamily: 'system-ui', padding: '15px', maxWidth: '380px', margin: '40px auto' }}>
+      <h2 style={{ textAlign: 'center', marginBottom: '15px', fontSize: '22px' }}>🎯 Logbook v2.0</h2>
       
       {erro && (
-        <div style={{ color: '#e74c3c', backgroundColor: '#fdedec', padding: '10px', borderRadius: '6px', textAlign: 'center', marginBottom: '15px', fontSize: '13px' }}>
+        <div style={{ color: '#e74c3c', backgroundColor: '#fdedec', padding: '8px', borderRadius: '6px', textAlign: 'center', marginBottom: '12px', fontSize: '12px', fontWeight: 'bold' }}>
           {erro}
         </div>
       )}
@@ -79,7 +79,7 @@ export default function App() {
           placeholder="Seu E-mail" 
           value={email} 
           onChange={e => setEmail(e.target.value)} 
-          style={{ width: '100%', padding: '12px', marginBottom: '10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box' }} 
+          style={{ width: '100%', padding: '10px', marginBottom: '8px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box', fontSize: '14px' }} 
           required 
         />
         <input 
@@ -87,29 +87,29 @@ export default function App() {
           placeholder="Sua Senha (mín. 6 caracteres)" 
           value={senha} 
           onChange={e => setSenha(e.target.value)} 
-          style={{ width: '100%', padding: '12px', marginBottom: '15px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box' }} 
+          style={{ width: '100%', padding: '10px', marginBottom: '12px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box', fontSize: '14px' }} 
           required 
         />
-        <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#2c3e50', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '15px' }}>
+        <button type="submit" style={{ width: '100%', padding: '10px', backgroundColor: '#2c3e50', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '14px' }}>
           {modoCadastro ? 'Criar Nova Conta' : 'Entrar com E-mail'}
         </button>
       </form>
       
-      <div style={{ textAlign: 'center', marginTop: '15px' }}>
-        <button onClick={() => {setModoCadastro(!modoCadastro); setErro('');}} style={{ background: 'none', border: 'none', color: '#2980b9', cursor: 'pointer', fontSize: '13px', textDecoration: 'underline' }}>
+      <div style={{ textAlign: 'center', marginTop: '12px' }}>
+        <button onClick={() => {setModoCadastro(!modoCadastro); setErro('');}} style={{ background: 'none', border: 'none', color: '#2980b9', cursor: 'pointer', fontSize: '12px', textDecoration: 'underline' }}>
           {modoCadastro ? 'Já tenho uma conta. Fazer Login.' : 'Ainda não tem conta? Crie aqui.'}
         </button>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', margin: '25px 0' }}>
+      <div style={{ display: 'flex', alignItems: 'center', margin: '20px 0' }}>
          <div style={{ flex: 1, height: '1px', backgroundColor: '#ddd' }} />
-         <span style={{ margin: '0 10px', color: '#7f8c8d', fontSize: '12px' }}>OU</span>
+         <span style={{ margin: '0 10px', color: '#7f8c8d', fontSize: '11px', fontWeight: 'bold' }}>OU</span>
          <div style={{ flex: 1, height: '1px', backgroundColor: '#ddd' }} />
       </div>
 
       <button 
         onClick={loginComGoogle} 
-        style={{ width: '100%', padding: '12px', backgroundColor: '#4285F4', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
+        style={{ width: '100%', padding: '10px', backgroundColor: '#4285F4', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
       >
         <span>🌐</span> Entrar com Google
       </button>
