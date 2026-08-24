@@ -111,8 +111,8 @@ const RenderizarAlvo: React.FC<RenderizarAlvoProps> = ({ imagem, marcacoes, onTa
     {marcacoes.map((m: Marcacao, i: number) => (
       <div key={i} style={{ 
         position: 'absolute', left: `${m.x * 100}%`, top: `${m.y * 100}%`, 
-        width: '4px', height: '4px', backgroundColor: '#ff0000', 
-        boxShadow: '0px 0px 2px rgba(0,0,0,0.8)', borderRadius: '50%', 
+        width: '6px', height: '6px', backgroundColor: '#ff0000', 
+        boxShadow: '0px 0px 3px rgba(0,0,0,0.8)', borderRadius: '50%', 
         transform: 'translate(-50%, -50%)', pointerEvents: 'none' 
       }} />
     ))}
@@ -191,7 +191,9 @@ export default function LogbookApp() {
     cardRelatorioBg: isDarkMode ? '#2c3e50' : '#eaf2f8', 
     caixaDiagBg: isDarkMode ? '#34495e' : '#d5e1ee',
     itemBorder: isDarkMode ? '#34495e' : '#bdc3c7', 
-    caixaDiagText: isDarkMode ? '#ecf0f1' : '#2c3e50' 
+    caixaDiagText: isDarkMode ? '#ecf0f1' : '#2c3e50',
+    paneBg: isDarkMode ? '#4a2323' : '#fdedec',
+    paneBorder: isDarkMode ? '#e74c3c' : '#e74c3c'
   };
   
   const [abaAcervo, setAbaAcervo] = useState<'pessoal' | 'clube'>('pessoal');
@@ -221,6 +223,12 @@ export default function LogbookApp() {
   const [tipoMunicao, setTipoMunicao] = useState<string>('Original');
   const [ehHabitualidade, setEhHabitualidade] = useState<boolean>(true);
   
+  // NOVOS ESTADOS PARA A FUNCIONALIDADE DE PANE
+  const [houvePane, setHouvePane] = useState<boolean>(false);
+  const [descPane, setDescPane] = useState<string>('');
+  const [resolucaoPane, setResolucaoPane] = useState<string>('');
+  const [mostrarDicasPane, setMostrarDicasPane] = useState<boolean>(false);
+
   const [tipoAlvoPadrao, setTipoAlvoPadrao] = useState<'circular' | 'humanoide'>('circular');
   const [imagemAlvo, setImagemAlvo] = useState<string>(ALVO_CIRCULAR);
   const [marcacoes, setMarcacoes] = useState<Marcacao[]>([]);
@@ -458,14 +466,19 @@ export default function LogbookApp() {
     setSessaoEmEdicaoId(null);
     setDataTreino(obterDataHoje());
     setHoraTreino(obterHoraAtual());
-    setQtdTiros(''); setMarcacoes([]); 
+    setQtdTiros(''); 
+    setMarcacoes([]); 
     setImagemAlvo(tipoAlvoPadrao === 'circular' ? ALVO_CIRCULAR : ALVO_HUMANOIDE); 
+    setHouvePane(false);
+    setDescPane('');
+    setResolucaoPane('');
+    setMostrarDicasPane(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const finalizarSessao = () => {
     if (!armaSelecionada) return alert("Selecione uma arma.");
-    if (!qtdTiros) return alert("Marque os disparos.");
+    if (!qtdTiros && marcacoes.length === 0) return alert("Marque os disparos ou insira a quantidade.");
 
     let nomeArmaUsada = '';
     let calibreUsado = '';
@@ -479,7 +492,7 @@ export default function LogbookApp() {
     }
 
     const metricas = avaliarMetricasTiro(marcacoes);
-    const taxaPapel = qtdTiros ? parseFloat(((marcacoes.length / parseInt(qtdTiros)) * 100).toFixed(0)) : 0;
+    const taxaPapel = qtdTiros && parseInt(qtdTiros) > 0 ? parseFloat(((marcacoes.length / parseInt(qtdTiros)) * 100).toFixed(0)) : 0;
 
     const novaSessao = {
       id: sessaoEmEdicaoId ? sessaoEmEdicaoId : Date.now(), 
@@ -487,9 +500,12 @@ export default function LogbookApp() {
       tipoArmaTreino: tipoArmaTreino,
       armaId: armaSelecionada, 
       armaNome: nomeArmaUsada, calibre: calibreUsado,
-      tirosDeclarados: qtdTiros, tirosNoAlvo: marcacoes.length, distancia: distancia, municao: tipoMunicao, habitualidade: ehHabitualidade,
+      tirosDeclarados: qtdTiros || marcacoes.length.toString(), 
+      tirosNoAlvo: marcacoes.length, distancia: distancia, municao: tipoMunicao, habitualidade: ehHabitualidade,
       taxaPapel: taxaPapel, precisaoScore: metricas.precisao, dispersaoIndex: metricas.dispersao, 
-      diagnosticos: metricas.diagnosticos, imagemOriginal: imagemAlvo, marcacoesSalvas: marcacoes
+      diagnosticos: metricas.diagnosticos, imagemOriginal: imagemAlvo, marcacoesSalvas: marcacoes,
+      // Dados de Pane
+      houvePane: houvePane, descPane: houvePane ? descPane : '', resolucaoPane: houvePane ? resolucaoPane : ''
     };
 
     if (sessaoEmEdicaoId) setHistoricoSessoes(historicoSessoes.map((s: any) => s.id === sessaoEmEdicaoId ? novaSessao : s));
@@ -511,6 +527,9 @@ export default function LogbookApp() {
     setEhHabitualidade(sessao.habitualidade !== false);
     setMarcacoes(sessao.marcacoesSalvas || []);
     setImagemAlvo(sessao.imagemOriginal || ALVO_CIRCULAR);
+    setHouvePane(sessao.houvePane || false);
+    setDescPane(sessao.descPane || '');
+    setResolucaoPane(sessao.resolucaoPane || '');
     setTelaAtual('treino');
   };
 
@@ -662,7 +681,7 @@ export default function LogbookApp() {
   
   const styles: { [key: string]: React.CSSProperties } = {
     container: { fontFamily: 'system-ui, sans-serif', padding: '10px', paddingBottom: '70px', maxWidth: '400px', margin: '0 auto', backgroundColor: theme.bg, color: theme.textMain, minHeight: '100vh', position: 'relative', boxSizing: 'border-box' },
-    card: { backgroundColor: theme.cardBg, padding: '10px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '12px', color: theme.textMain },
+    card: { backgroundColor: theme.cardBg, padding: '12px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '12px', color: theme.textMain },
     input: { width: '100%', padding: '8px', marginBottom: '8px', borderRadius: '6px', border: `1px solid ${theme.borderColor}`, boxSizing: 'border-box', backgroundColor: theme.inputBg, color: theme.inputText, fontSize: '13px' },
     button: { width: '100%', padding: '8px', backgroundColor: '#2980b9', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' },
     btnSecundario: { width: '100%', padding: '6px', backgroundColor: theme.caixaDiagBg, color: theme.textMain, border: `1px solid ${theme.borderColor}`, borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' },
@@ -767,7 +786,6 @@ export default function LogbookApp() {
                     style={{ backgroundColor: theme.cardRelatorioBg, padding: '10px', borderRadius: '8px', marginBottom: '10px', border: `1px solid ${theme.itemBorder}`, cursor: 'pointer' }} 
                     onClick={() => setArmaExpandida(isExpanded ? null : a.id)}
                   >
-                    {/* Header do Card (V1 Style Compacto) */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                        <div>
                           <strong style={{ fontSize: '14px', display: 'block', color: theme.textMain }}>{a.marca} {a.modelo}</strong>
@@ -782,7 +800,6 @@ export default function LogbookApp() {
                        </div>
                     </div>
 
-                    {/* Documentos visíveis por padrão (Apenas Pessoal) */}
                     {abaAcervo === 'pessoal' && (
                       <div style={{ backgroundColor: isDarkMode ? '#2c3e50' : '#e2e8f0', padding: '8px', borderRadius: '6px', margin: '4px 0', fontSize: '11px' }}>
                          <p style={{margin: '0 0 4px 0', fontWeight: 'bold', color: theme.textMain}}>CRAF: <span style={{fontWeight: 'normal'}}>{a.craf || 'Não inf.'} {a.validadeCraf ? ` (Val: ${formatarData(a.validadeCraf)})` : ''}</span></p>
@@ -790,16 +807,13 @@ export default function LogbookApp() {
                       </div>
                     )}
                     
-                    {/* Seta indicativa de expansão */}
                     {!isExpanded && <div style={{textAlign: 'center', color: theme.textSec, fontSize: '10px', marginTop: '6px'}}>▼ Clique para expandir detalhes</div>}
                     {isExpanded && <div style={{textAlign: 'center', color: theme.textSec, fontSize: '10px', marginTop: '6px'}}>▲ Clique para recolher</div>}
 
-                    {/* Conteúdo Expandido (A Sanfona) */}
                     {isExpanded && (
                       <div style={{ marginTop: '4px', cursor: 'default' }} onClick={e => e.stopPropagation()}>
                         <div style={{ borderTop: `1px dashed ${theme.borderColor}`, margin: '10px 0' }} />
 
-                        {/* Consumo de Munição (Blocos V1) */}
                         <div style={{ textAlign: 'center', marginBottom: '10px' }}>
                           <strong style={{ fontSize: '11px', color: theme.textMain, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>📊 Consumo de Munição</strong>
                           <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', marginTop: '6px' }}>
@@ -809,7 +823,6 @@ export default function LogbookApp() {
                           </div>
                         </div>
 
-                        {/* Controle de Manutenção (Apenas Pessoal) */}
                         {abaAcervo === 'pessoal' && (
                           <>
                             <div style={{ borderTop: `1px dashed ${theme.borderColor}`, margin: '10px 0' }} />
@@ -906,6 +919,36 @@ export default function LogbookApp() {
             Válido para Habitualidade (CAC)
           </label>
 
+          {/* NOVO: REGISTRO DE PANES */}
+          <div style={{ marginBottom: '10px', border: `1px solid ${houvePane ? theme.paneBorder : theme.borderColor}`, borderRadius: '6px', overflow: 'hidden' }}>
+            <label style={{display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 'bold', color: houvePane ? '#e74c3c' : theme.textSec, padding: '8px', backgroundColor: houvePane ? theme.paneBg : theme.inputBg, cursor: 'pointer', margin: 0}}>
+              <input type="checkbox" checked={houvePane} onChange={(e) => setHouvePane(e.target.checked)} style={{width: '13px', height: '13px'}} />
+              ⚠️ Ocorreu alguma pane no armamento?
+            </label>
+            
+            {houvePane && (
+              <div style={{ padding: '8px', backgroundColor: theme.cardBg }}>
+                <input type="text" placeholder="Qual foi a pane? (Ex: Nega, Chaminé)" value={descPane} onChange={e => setDescPane(e.target.value)} style={{...styles.input, marginBottom: '6px', borderColor: '#e74c3c'}} />
+                <input type="text" placeholder="Como foi resolvida?" value={resolucaoPane} onChange={e => setResolucaoPane(e.target.value)} style={{...styles.input, marginBottom: '6px'}} />
+                
+                <button onClick={() => setMostrarDicasPane(!mostrarDicasPane)} style={{...styles.btnAcao, color: '#2980b9', fontSize: '10px', fontWeight: 'bold', width: '100%', textAlign: 'center'}}>
+                  {mostrarDicasPane ? '▲ Ocultar Dicas Táticas' : '▼ Ver Dicas de Resolução de Panes'}
+                </button>
+
+                {mostrarDicasPane && (
+                  <div style={{ marginTop: '6px', padding: '8px', backgroundColor: theme.cardRelatorioBg, borderRadius: '4px', fontSize: '10px', color: theme.textMain, lineHeight: '1.4' }}>
+                    <strong>Ação Imediata (Tap-Rack-Bang):</strong><br/>
+                    1. Bata forte na base do carregador.<br/>
+                    2. Puxe o ferrolho (rack) para ejetar a munição falha.<br/>
+                    3. Retome a visada e tente o disparo.<br/><br/>
+                    <strong>Dupla Alimentação:</strong><br/>
+                    Trave o ferrolho aberto, remova o carregador, puxe o ferrolho 2x para limpar a câmara, insira novo carregador e engrije a arma.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <label style={{fontSize: '11px', fontWeight: 'bold', color: theme.textSec}}>Qtd Disparos (Calculado na foto):</label>
           <input type="number" style={{...styles.input, opacity: 0.7, cursor: 'not-allowed'}} value={qtdTiros} disabled placeholder="Auto" />
           
@@ -943,7 +986,7 @@ export default function LogbookApp() {
             />
             
             <div style={{textAlign: 'center', marginTop: '8px'}}>
-              <span style={{fontWeight: 'bold', fontSize: '13px', color: '#e74c3c'}}>Impactos: {marcacoes.length}</span>
+              <span style={{fontWeight: 'bold', fontSize: '13px', color: '#e74c3c'}}>Impactos Identificados: {marcacoes.length}</span>
             </div>
           </div>
           
@@ -1042,6 +1085,15 @@ export default function LogbookApp() {
                      <div style={{ fontSize: '10px', textAlign: 'center', color: theme.textMain, lineHeight: '1.3' }}>
                         <strong>Laudo Técnico:</strong> {(sessao.diagnosticos && sessao.diagnosticos.length > 0) ? sessao.diagnosticos.join(' ') : (sessao.diagnostico || 'Agrupamento consistente.')}
                      </div>
+                     
+                     {/* AVISO DE PANE (Se houver) */}
+                     {sessao.houvePane && (
+                       <div style={{ marginTop: '8px', padding: '6px', backgroundColor: '#fdedec', border: '1px solid #e74c3c', borderRadius: '4px', textAlign: 'left', color: '#c0392b', fontSize: '10px' }}>
+                         <strong>⚠️ PANE NO ARMAMENTO:</strong> {sessao.descPane || 'Não detalhada'}<br/>
+                         {sessao.resolucaoPane && <span><strong>Resolução:</strong> {sessao.resolucaoPane}</span>}
+                       </div>
+                     )}
+
                      {!modoComparacao && (
                         <div 
                            onClick={() => setSessaoExpandida(sessaoExpandida === sessao.id ? null : sessao.id)}
