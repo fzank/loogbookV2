@@ -5,6 +5,7 @@ import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 
 const ALVO_CIRCULAR: string = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23e0e0e0'/%3E%3Ccircle cx='50' cy='50' r='45' fill='white' stroke='black' stroke-width='1'/%3E%3Ccircle cx='50' cy='50' r='35' fill='white' stroke='black' stroke-width='1'/%3E%3Ccircle cx='50' cy='50' r='25' fill='white' stroke='black' stroke-width='1'/%3E%3Ccircle cx='50' cy='50' r='15' fill='black'/%3E%3Ccircle cx='50' cy='50' r='5' fill='none' stroke='white' stroke-width='1'/%3E%3C/svg%3E";
 const ALVO_HUMANOIDE: string = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%232c3e50'/%3E%3Cpath d='M 40 5 C 40 2, 60 2, 60 5 L 60 18 C 75 18, 85 25, 85 40 L 80 100 L 20 100 L 15 40 C 15 25, 25 18, 40 18 Z' fill='%23ecf0f1'/%3E%3Cpath d='M 20 80 Q 50 90 80 80' fill='none' stroke='%23bdc3c7' stroke-width='0.5'/%3E%3Cpath d='M 15 60 Q 50 75 85 60' fill='none' stroke='%23bdc3c7' stroke-width='0.5'/%3E%3Cpath d='M 25 35 Q 50 50 75 35' fill='none' stroke='%23bdc3c7' stroke-width='0.5'/%3E%3Ccircle cx='50' cy='45' r='8' fill='none' stroke='%23bdc3c7' stroke-width='0.5'/%3E%3Ccircle cx='50' cy='12' r='3' fill='none' stroke='%23bdc3c7' stroke-width='0.5'/%3E%3C/svg%3E";
+const ALVO_DUPLO: string = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 100'%3E%3Crect width='200' height='100' fill='%232c3e50'/%3E%3Cpath d='M 40 5 C 40 2, 60 2, 60 5 L 60 18 C 75 18, 85 25, 85 40 L 80 100 L 20 100 L 15 40 C 15 25, 25 18, 40 18 Z' fill='%23ecf0f1'/%3E%3Cpath d='M 20 80 Q 50 90 80 80' fill='none' stroke='%23bdc3c7' stroke-width='0.5'/%3E%3Cpath d='M 15 60 Q 50 75 85 60' fill='none' stroke='%23bdc3c7' stroke-width='0.5'/%3E%3Cpath d='M 25 35 Q 50 50 75 35' fill='none' stroke='%23bdc3c7' stroke-width='0.5'/%3E%3Ccircle cx='50' cy='45' r='8' fill='none' stroke='%23bdc3c7' stroke-width='0.5'/%3E%3Ccircle cx='50' cy='12' r='3' fill='none' stroke='%23bdc3c7' stroke-width='0.5'/%3E%3Cpath d='M 140 5 C 140 2, 160 2, 160 5 L 160 18 C 175 18, 185 25, 185 40 L 180 100 L 120 100 L 115 40 C 115 25, 125 18, 140 18 Z' fill='%23ecf0f1'/%3E%3Cpath d='M 120 80 Q 150 90 180 80' fill='none' stroke='%23bdc3c7' stroke-width='0.5'/%3E%3Cpath d='M 115 60 Q 150 75 185 60' fill='none' stroke='%23bdc3c7' stroke-width='0.5'/%3E%3Cpath d='M 125 35 Q 150 50 175 35' fill='none' stroke='%23bdc3c7' stroke-width='0.5'/%3E%3Ccircle cx='150' cy='45' r='8' fill='none' stroke='%23bdc3c7' stroke-width='0.5'/%3E%3Ccircle cx='150' cy='12' r='3' fill='none' stroke='%23bdc3c7' stroke-width='0.5'/%3E%3C/svg%3E";
 
 const CALIBRES_DISPONIVEIS: string[] = [".22 LR", ".380 ACP", "9mm", ".38 SPL", ".357 Mag", ".40 S&W", ".45 ACP", "12 Gauge", "5.56x45mm", ".308 Win"];
 
@@ -228,7 +229,7 @@ export default function LogbookApp() {
   const [resolucaoPane, setResolucaoPane] = useState<string>('');
   const [mostrarDicasPane, setMostrarDicasPane] = useState<boolean>(false);
 
-  const [tipoAlvoPadrao, setTipoAlvoPadrao] = useState<'circular' | 'humanoide'>('circular');
+  const [tipoAlvoPadrao, setTipoAlvoPadrao] = useState<'circular' | 'humanoide' | 'duplo'>('circular');
   const [imagemAlvo, setImagemAlvo] = useState<string>(ALVO_CIRCULAR);
   const [marcacoes, setMarcacoes] = useState<Marcacao[]>([]);
   const [isAutoScanning, setIsAutoScanning] = useState<boolean>(false);
@@ -261,8 +262,8 @@ export default function LogbookApp() {
   }, [telaAtual, sessaoEmEdicaoId, historicoSessoes, armas, loadingDb]);
 
   useEffect(() => {
-    if (!sessaoEmEdicaoId && (imagemAlvo === ALVO_CIRCULAR || imagemAlvo === ALVO_HUMANOIDE)) {
-      setImagemAlvo(tipoAlvoPadrao === 'circular' ? ALVO_CIRCULAR : ALVO_HUMANOIDE);
+    if (!sessaoEmEdicaoId && (imagemAlvo === ALVO_CIRCULAR || imagemAlvo === ALVO_HUMANOIDE || imagemAlvo === ALVO_DUPLO)) {
+      setImagemAlvo(tipoAlvoPadrao === 'circular' ? ALVO_CIRCULAR : tipoAlvoPadrao === 'humanoide' ? ALVO_HUMANOIDE : ALVO_DUPLO);
       setMarcacoes([]);
       setQtdTiros('');
     }
@@ -302,7 +303,7 @@ export default function LogbookApp() {
   };
 
   const removerFoto = () => {
-    setImagemAlvo(tipoAlvoPadrao === 'circular' ? ALVO_CIRCULAR : ALVO_HUMANOIDE);
+    setImagemAlvo(tipoAlvoPadrao === 'circular' ? ALVO_CIRCULAR : tipoAlvoPadrao === 'humanoide' ? ALVO_HUMANOIDE : ALVO_DUPLO);
     setMarcacoes([]);
     setQtdTiros('');
     setIsAutoScanning(false);
@@ -317,7 +318,7 @@ export default function LogbookApp() {
   };
 
   const escanearFuros = (img: HTMLImageElement) => {
-    if (imagemAlvo === ALVO_CIRCULAR || imagemAlvo === ALVO_HUMANOIDE) return;
+    if (imagemAlvo === ALVO_CIRCULAR || imagemAlvo === ALVO_HUMANOIDE || imagemAlvo === ALVO_DUPLO) return;
     
     const MAX_DIM = 800;
     let scale = 1;
@@ -467,7 +468,7 @@ export default function LogbookApp() {
     setHoraTreino(obterHoraAtual());
     setQtdTiros(''); 
     setMarcacoes([]); 
-    setImagemAlvo(tipoAlvoPadrao === 'circular' ? ALVO_CIRCULAR : ALVO_HUMANOIDE); 
+    setImagemAlvo(tipoAlvoPadrao === 'circular' ? ALVO_CIRCULAR : tipoAlvoPadrao === 'humanoide' ? ALVO_HUMANOIDE : ALVO_DUPLO); 
     setHouvePane(false);
     setDescPane('');
     setResolucaoPane('');
@@ -949,19 +950,20 @@ export default function LogbookApp() {
           <label style={{fontSize: '11px', fontWeight: 'bold', color: theme.textSec}}>Qtd Disparos (Calculado na foto):</label>
           <input type="number" style={{...styles.input, opacity: 0.7, cursor: 'not-allowed'}} value={qtdTiros} disabled placeholder="Auto" />
           
-          {(!imagemAlvo || imagemAlvo === ALVO_CIRCULAR || imagemAlvo === ALVO_HUMANOIDE) && (
+          {(!imagemAlvo || imagemAlvo === ALVO_CIRCULAR || imagemAlvo === ALVO_HUMANOIDE || imagemAlvo === ALVO_DUPLO) && (
             <div style={{marginBottom: '10px', backgroundColor: theme.cardRelatorioBg, padding: '8px', borderRadius: '6px'}}>
               <label style={{display: 'block', fontSize: '11px', fontWeight: 'bold', marginBottom: '4px'}}>Tipo de Alvo Padrão:</label>
-              <div style={{display: 'flex', gap: '10px'}}>
+              <div style={{display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
                 <label style={{fontSize: '12px', cursor: 'pointer'}}><input type="radio" name="alvo" checked={tipoAlvoPadrao === 'circular'} onChange={() => setTipoAlvoPadrao('circular')} /> Circular</label>
-                <label style={{fontSize: '12px', cursor: 'pointer'}}><input type="radio" name="alvo" checked={tipoAlvoPadrao === 'humanoide'} onChange={() => setTipoAlvoPadrao('humanoide')} /> Humanoide (PF)</label>
+                <label style={{fontSize: '12px', cursor: 'pointer'}}><input type="radio" name="alvo" checked={tipoAlvoPadrao === 'humanoide'} onChange={() => setTipoAlvoPadrao('humanoide')} /> Humanoide</label>
+                <label style={{fontSize: '12px', cursor: 'pointer'}}><input type="radio" name="alvo" checked={tipoAlvoPadrao === 'duplo'} onChange={() => setTipoAlvoPadrao('duplo')} /> Duplo</label>
               </div>
             </div>
           )}
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
             <label style={{fontSize: '11px', fontWeight: 'bold', color: theme.textSec}}>Upload da Foto para Auto-Análise:</label>
-            {imagemAlvo !== ALVO_CIRCULAR && imagemAlvo !== ALVO_HUMANOIDE && (
+            {imagemAlvo !== ALVO_CIRCULAR && imagemAlvo !== ALVO_HUMANOIDE && imagemAlvo !== ALVO_DUPLO && (
               <button onClick={removerFoto} style={{ background: 'none', border: 'none', color: '#e74c3c', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer' }}>
                 🗑️ Remover
               </button>
