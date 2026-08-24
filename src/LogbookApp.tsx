@@ -223,7 +223,6 @@ export default function LogbookApp() {
   const [tipoMunicao, setTipoMunicao] = useState<string>('Original');
   const [ehHabitualidade, setEhHabitualidade] = useState<boolean>(true);
   
-  // NOVOS ESTADOS PARA A FUNCIONALIDADE DE PANE
   const [houvePane, setHouvePane] = useState<boolean>(false);
   const [descPane, setDescPane] = useState<string>('');
   const [resolucaoPane, setResolucaoPane] = useState<string>('');
@@ -504,7 +503,6 @@ export default function LogbookApp() {
       tirosNoAlvo: marcacoes.length, distancia: distancia, municao: tipoMunicao, habitualidade: ehHabitualidade,
       taxaPapel: taxaPapel, precisaoScore: metricas.precisao, dispersaoIndex: metricas.dispersao, 
       diagnosticos: metricas.diagnosticos, imagemOriginal: imagemAlvo, marcacoesSalvas: marcacoes,
-      // Dados de Pane
       houvePane: houvePane, descPane: houvePane ? descPane : '', resolucaoPane: houvePane ? resolucaoPane : ''
     };
 
@@ -681,7 +679,7 @@ export default function LogbookApp() {
   
   const styles: { [key: string]: React.CSSProperties } = {
     container: { fontFamily: 'system-ui, sans-serif', padding: '10px', paddingBottom: '70px', maxWidth: '400px', margin: '0 auto', backgroundColor: theme.bg, color: theme.textMain, minHeight: '100vh', position: 'relative', boxSizing: 'border-box' },
-    card: { backgroundColor: theme.cardBg, padding: '12px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '12px', color: theme.textMain },
+    card: { backgroundColor: theme.cardBg, padding: '10px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '12px', color: theme.textMain },
     input: { width: '100%', padding: '8px', marginBottom: '8px', borderRadius: '6px', border: `1px solid ${theme.borderColor}`, boxSizing: 'border-box', backgroundColor: theme.inputBg, color: theme.inputText, fontSize: '13px' },
     button: { width: '100%', padding: '8px', backgroundColor: '#2980b9', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' },
     btnSecundario: { width: '100%', padding: '6px', backgroundColor: theme.caixaDiagBg, color: theme.textMain, border: `1px solid ${theme.borderColor}`, borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' },
@@ -910,7 +908,7 @@ export default function LogbookApp() {
             </div>
             <div style={{flex: 1}}>
               <label style={{fontSize: '11px', fontWeight: 'bold', color: theme.textSec}}>Distância (m):</label>
-              <input type="number" style={styles.input} value={distancia} onChange={(e) => setDistancia(e.target.value)} />
+              <input type="number" min="0" style={styles.input} value={distancia} onChange={(e) => { const v = e.target.value; setDistancia(Number(v) < 0 ? '0' : v); }} />
             </div>
           </div>
 
@@ -919,7 +917,6 @@ export default function LogbookApp() {
             Válido para Habitualidade (CAC)
           </label>
 
-          {/* NOVO: REGISTRO DE PANES */}
           <div style={{ marginBottom: '10px', border: `1px solid ${houvePane ? theme.paneBorder : theme.borderColor}`, borderRadius: '6px', overflow: 'hidden' }}>
             <label style={{display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 'bold', color: houvePane ? '#e74c3c' : theme.textSec, padding: '8px', backgroundColor: houvePane ? theme.paneBg : theme.inputBg, cursor: 'pointer', margin: 0}}>
               <input type="checkbox" checked={houvePane} onChange={(e) => setHouvePane(e.target.checked)} style={{width: '13px', height: '13px'}} />

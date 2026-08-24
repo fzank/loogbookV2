@@ -18,6 +18,9 @@ export default function App() {
   const [erro, setErro] = useState('');
 
   useEffect(() => {
+    // Altera o título da aba do navegador dinamicamente
+    document.title = "Logbook de tiro 🎯";
+
     const unsubscribe = onAuthStateChanged(auth, (user) => { 
       setUsuario(user); 
       setCarregando(false); 
