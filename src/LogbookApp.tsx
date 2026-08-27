@@ -261,13 +261,18 @@ export default function LogbookApp() {
     }
   }, [telaAtual, sessaoEmEdicaoId, historicoSessoes, armas, loadingDb]);
 
+  // CORREÇÃO: Removido o bloqueio que impedia a mudança de alvo após remover foto.
   useEffect(() => {
-    if (!sessaoEmEdicaoId && (imagemAlvo === ALVO_CIRCULAR || imagemAlvo === ALVO_HUMANOIDE || imagemAlvo === ALVO_DUPLO)) {
-      setImagemAlvo(tipoAlvoPadrao === 'circular' ? ALVO_CIRCULAR : tipoAlvoPadrao === 'humanoide' ? ALVO_HUMANOIDE : ALVO_DUPLO);
-      setMarcacoes([]);
-      setQtdTiros('');
+    const isAlvoPadrao = imagemAlvo === ALVO_CIRCULAR || imagemAlvo === ALVO_HUMANOIDE || imagemAlvo === ALVO_DUPLO;
+    if (isAlvoPadrao) {
+      const alvoCorreto = tipoAlvoPadrao === 'circular' ? ALVO_CIRCULAR : tipoAlvoPadrao === 'humanoide' ? ALVO_HUMANOIDE : ALVO_DUPLO;
+      if (imagemAlvo !== alvoCorreto) {
+        setImagemAlvo(alvoCorreto);
+        setMarcacoes([]);
+        setQtdTiros('');
+      }
     }
-  }, [tipoAlvoPadrao, sessaoEmEdicaoId]);
+  }, [tipoAlvoPadrao, imagemAlvo]);
 
   if (loadingDb) {
     return (
@@ -870,6 +875,17 @@ export default function LogbookApp() {
           <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${theme.borderColor}`, paddingBottom: '6px', marginBottom: '10px'}}>
             <h3 style={{margin: 0, fontSize: '14px'}}>{sessaoEmEdicaoId ? 'Editar Sessão' : 'Registrar Sessão'}</h3>
             {sessaoEmEdicaoId && <button onClick={limparFormularioTreino} style={{...styles.btnAcao, color: '#e74c3c', fontSize: '11px', fontWeight: 'bold'}}>✖ Cancelar</button>}
+          </div>
+
+          <div style={{display: 'flex', gap: '6px', marginBottom: '10px'}}>
+            <div style={{flex: 1}}>
+              <label style={{fontSize: '11px', fontWeight: 'bold', color: theme.textSec}}>Data:</label>
+              <input type="date" style={{...styles.input, marginBottom: 0}} value={dataTreino} onChange={(e) => setDataTreino(e.target.value)} />
+            </div>
+            <div style={{flex: 1}}>
+              <label style={{fontSize: '11px', fontWeight: 'bold', color: theme.textSec}}>Hora:</label>
+              <input type="time" style={{...styles.input, marginBottom: 0}} value={horaTreino} onChange={(e) => setHoraTreino(e.target.value)} />
+            </div>
           </div>
 
           <div style={{display: 'flex', gap: '12px', marginBottom: '8px'}}>
