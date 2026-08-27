@@ -442,8 +442,8 @@ export default function LogbookApp() {
     const xRatio = xPx / rect.width;
     const yRatio = yPx / rect.height;
 
-    // Hitbox de exclusão de tiro reduzido para evitar deleção acidental
-    const RAIO_PX = 6; 
+    // Hitbox de exclusão ultra-precisa (3px) para permitir agrupamentos
+    const RAIO_PX = 3; 
 
     const indexParaRemover = marcacoes.findIndex(m => {
       const mxPx = m.x * rect.width;
