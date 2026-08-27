@@ -234,6 +234,9 @@ export default function LogbookApp() {
   const [marcacoes, setMarcacoes] = useState<Marcacao[]>([]);
   const [isAutoScanning, setIsAutoScanning] = useState<boolean>(false);
   
+  // NOVO: Sensibilidade do Scanner
+  const [sensibilidadeInput, setSensibilidadeInput] = useState<number>(120);
+
   const [modoComparacao, setModoComparacao] = useState<boolean>(false);
   const [sessoesParaComparar, setSessoesParaComparar] = useState<any[]>([]);
   const [sessaoExpandida, setSessaoExpandida] = useState<number | null>(null);
@@ -269,17 +272,6 @@ export default function LogbookApp() {
     setQtdTiros('');
   };
 
-  if (loadingDb) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#f4f4f9', color: '#2c3e50', fontFamily: 'system-ui' }}>
-        <h2 style={{margin: '0 0 15px 0', fontSize: '20px'}}>🎯 Logbook v2.0</h2>
-        <div style={{ padding: '12px 24px', backgroundColor: 'white', borderRadius: '6px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', fontWeight: 'bold', fontSize: '13px' }}>
-          ☁️ Sincronizando com a Nuvem...
-        </div>
-      </div>
-    );
-  }
-
   const adicionarNovaArmaClube = () => {
     if (!novaArmaClubeMarca.trim() || !novaArmaClubeCalibre) return alert("Preencha a Marca e o Calibre.");
     const nova = { id: Date.now(), marca: novaArmaClubeMarca, modelo: '', calibre: novaArmaClubeCalibre };
@@ -307,17 +299,19 @@ export default function LogbookApp() {
     setMarcacoes([]);
     setQtdTiros('');
     setIsAutoScanning(false);
+    setSensibilidadeInput(120);
     if (fileInputRef.current) fileInputRef.current.value = ''; 
   };
 
   const lidarCarregamentoImagem = () => {
     if (isAutoScanning && imgAlvoRef.current) {
-      escanearFuros(imgAlvoRef.current);
+      escanearFuros(imgAlvoRef.current, sensibilidadeInput);
       setIsAutoScanning(false);
     }
   };
 
-  const escanearFuros = (img: HTMLImageElement) => {
+  // Algoritmo matemático melhorado (Opção 1 + Sensibilidade)
+  const escanearFuros = (img: HTMLImageElement, limiarLuma: number) => {
     if (imagemAlvo === ALVO_CIRCULAR || imagemAlvo === ALVO_HUMANOIDE || imagemAlvo === ALVO_DUPLO) return;
     
     const MAX_DIM = 800;
@@ -340,7 +334,7 @@ export default function LogbookApp() {
     
     const binaryMap = new Uint8Array(w * h);
     const lumaMap = new Uint8Array(w * h);
-    const THRESHOLD = 135; 
+    const THRESHOLD = limiarLuma; 
     
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
@@ -387,12 +381,13 @@ export default function LogbookApp() {
     }
 
     const validHoles: {x: number, y: number}[] = [];
-    const marginX = w * 0.12; 
-    const marginY = h * 0.12; 
+    const marginX = w * 0.10; 
+    const marginY = h * 0.10; 
 
     for (const blob of blobs) {
       const width = blob.maxX - blob.minX + 1;
       const height = blob.maxY - blob.minY + 1;
+      // Stricter Aspect Ratio for circularity (1.8 instead of 3.0)
       const aspect = Math.max(width, height) / Math.min(width, height);
       const density = blob.pixels / (width * height);
       const cx = Math.floor(blob.sumX / blob.pixels);
@@ -400,8 +395,9 @@ export default function LogbookApp() {
 
       if (cx < marginX || cx > w - marginX || cy < marginY || cy > h - marginY) continue;
 
-      if (!blob.touchesEdge && blob.pixels >= 5 && blob.pixels <= 400 && aspect <= 3.0 && density >= 0.25) {
-          const margin = 15;
+      // Stricter parameters: Density >= 40% (ignoring shadows/stickers), Pixels limits adjusted
+      if (!blob.touchesEdge && blob.pixels >= 8 && blob.pixels <= 350 && aspect <= 1.8 && density >= 0.40) {
+          const margin = 12;
           let bgLumaSum = 0;
           let bgCount = 0;
           let darkNeighbors = 0;
@@ -409,7 +405,6 @@ export default function LogbookApp() {
           for(let py = cy - margin; py <= cy + margin; py += 2) {
               for(let px = cx - margin; px <= cx + margin; px += 2) {
                   if (Math.abs(px - cx) < width/2 && Math.abs(py - cy) < height/2) continue;
-
                   if (px >= 0 && px < w && py >= 0 && py < h) {
                       const luma = lumaMap[py * w + px];
                       bgLumaSum += luma;
@@ -424,7 +419,7 @@ export default function LogbookApp() {
           const avgBgLuma = bgCount > 0 ? bgLumaSum / bgCount : 255;
           const coreLuma = blob.sumLuma / blob.pixels;
           
-          if (avgBgLuma - coreLuma > 10) {
+          if (avgBgLuma - coreLuma > 15) {
               validHoles.push({ x: cx / w, y: cy / h });
           }
       }
@@ -432,6 +427,12 @@ export default function LogbookApp() {
 
     setMarcacoes(validHoles);
     setQtdTiros(validHoles.length.toString()); 
+  };
+
+  const reescanearComSensibilidade = () => {
+    if (imgAlvoRef.current && imagemAlvo !== ALVO_CIRCULAR && imagemAlvo !== ALVO_HUMANOIDE && imagemAlvo !== ALVO_DUPLO) {
+      escanearFuros(imgAlvoRef.current, sensibilidadeInput);
+    }
   };
 
   const marcarTiro = (e: React.MouseEvent<HTMLImageElement>) => { 
@@ -442,7 +443,7 @@ export default function LogbookApp() {
     const xRatio = xPx / rect.width;
     const yRatio = yPx / rect.height;
 
-    // Hitbox de exclusão ultra-precisa (3px) para permitir agrupamentos
+    // Hitbox de exclusão muito precisa (3px) para permitir agrupamento colado
     const RAIO_PX = 3; 
 
     const indexParaRemover = marcacoes.findIndex(m => {
@@ -474,6 +475,7 @@ export default function LogbookApp() {
     setDescPane('');
     setResolucaoPane('');
     setMostrarDicasPane(false);
+    setSensibilidadeInput(120);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -990,9 +992,34 @@ export default function LogbookApp() {
           
           <input type="file" accept="image/*" ref={fileInputRef} onChange={lidarComUploadAlvo} style={{marginBottom: '10px', width: '100%', color: theme.textMain, fontSize: '11px'}} />
           
+          {/* NOVO: SLIDER DE SENSIBILIDADE DA CÂMERA */}
+          {imagemAlvo !== ALVO_CIRCULAR && imagemAlvo !== ALVO_HUMANOIDE && imagemAlvo !== ALVO_DUPLO && (
+            <div style={{marginBottom: '10px', padding: '10px', backgroundColor: theme.caixaDiagBg, borderRadius: '6px', border: `1px solid ${theme.borderColor}`}}>
+               <label style={{fontSize: '11px', fontWeight: 'bold', color: theme.textMain, display: 'block', marginBottom: '6px', textAlign: 'center'}}>
+                  ⚙️ Ajuste de Sensibilidade (Filtro de Obreias/Luz)
+               </label>
+               <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                  <span style={{fontSize: '10px', fontWeight: 'bold'}}>+ Filtro</span>
+                  <input 
+                     type="range" 
+                     min="60" max="180" 
+                     value={sensibilidadeInput} 
+                     onChange={(e) => setSensibilidadeInput(Number(e.target.value))}
+                     onMouseUp={reescanearComSensibilidade}
+                     onTouchEnd={reescanearComSensibilidade}
+                     style={{flex: 1}}
+                  />
+                  <span style={{fontSize: '10px', fontWeight: 'bold'}}>+ Tiros</span>
+               </div>
+               <p style={{fontSize: '9px', marginTop: '6px', marginBottom: 0, color: theme.textSec, lineHeight: '1.3', textAlign: 'center'}}>
+                  Se marcou sombras falsas, arraste para a <strong>esquerda</strong>. Se faltou tiros, arraste para a <strong>direita</strong>. Solte para recalcular.
+               </p>
+            </div>
+          )}
+
           <div style={{backgroundColor: theme.cardRelatorioBg, padding: '8px', borderRadius: '6px', border: `1px solid ${theme.borderColor}`}}>
             <p style={{fontSize: '10px', textAlign: 'center', marginBottom: '6px', color: theme.textSec}}>
-              Toque no papel para <strong>adicionar</strong> tiro.<br/>Toque no tiro para <strong>apagar</strong>.
+              Toque no papel para <strong>adicionar</strong> tiro.<br/>Toque exato no tiro para <strong>apagar</strong>.
             </p>
             <RenderizarAlvo 
               imagem={imagemAlvo} 
